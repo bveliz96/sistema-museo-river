@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block title %}
+Administración
+{% endblock %}
+
+
+{% block contenido %}
+
+<header class="encabezado">
+
+    <div>
+
+        <h1>Administración</h1>
+
+        <p class="subtitulo">
+            Configuración general del sistema
+        </p>
+
+    </div>
+
+</header>
+
+
+<section class="admin-grid">
+
+
+    <!-- EMPRESAS -->
+
+    <a
+        href="{{ url_for('empresas') }}"
+        class="admin-card"
+    >
+
+        <div class="admin-card-icono">
+            🏢
+        </div>
+
+        <div class="admin-card-contenido">
+
+            <h2>
+                Empresas
+            </h2>
+
+            <p>
+                Administrar las empresas disponibles
+                para las reservas.
+            </p>
+
+        </div>
+
+        <div class="admin-card-flecha">
+            ›
+        </div>
+
+    </a>
+
+
+    <!-- USUARIOS -->
+
+    <a
+        href="{{ url_for('usuarios') }}"
+        class="admin-card"
+    >
+
+        <div class="admin-card-icono">
+            👤
+        </div>
+
+        <div class="admin-card-contenido">
+
+            <h2>
+                Usuarios
+            </h2>
+
+            <p>
+                Crear usuarios y administrar
+                roles y accesos.
+            </p>
+
+        </div>
+
+        <div class="admin-card-flecha">
+            ›
+        </div>
+
+    </a>
+
+
+    <!-- TIPOS DE VISITA -->
+
+    <a
+        href="{{ url_for('tipos_visita') }}"
+        class="admin-card"
+    >
+
+        <div class="admin-card-icono">
+            🎟
+        </div>
+
+        <div class="admin-card-contenido">
+
+            <h2>
+                Tipos de visita
+            </h2>
+
+            <p>
+                Configurar las modalidades de visita
+                utilizadas por el sistema.
+            </p>
+
+        </div>
+
+        <div class="admin-card-flecha">
+            ›
+        </div>
+
+    </a>
+
+
+    <!-- TIPOS DE PROTOCOLO -->
+
+    <a
+        href="{{ url_for('tipos_protocolo') }}"
+        class="admin-card"
+    >
+
+        <div class="admin-card-icono">
+            📋
+        </div>
+
+        <div class="admin-card-contenido">
+
+            <h2>
+                Tipos de protocolo
+            </h2>
+
+            <p>
+                Administrar los tipos de entradas
+                de protocolo sin cargo.
+            </p>
+
+        </div>
+
+        <div class="admin-card-flecha">
+            ›
+        </div>
+
+    </a>
+
+
+</section>
+
+{% endblock %}

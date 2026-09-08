@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}
+Editar usuario
+{% endblock %}
+
+
+{% block contenido %}
+
+<header class="encabezado">
+
+    <div>
+
+        <h1>Editar Usuario</h1>
+
+        <p class="subtitulo">
+            Modificar datos y permisos del usuario
+        </p>
+
+    </div>
+
+    <a
+        href="{{ url_for('usuarios') }}"
+        class="boton-secundario"
+    >
+        ← Volver
+    </a>
+
+</header>
+
+
+<section class="panel">
+
+    {% if error %}
+
+        <div class="mensaje-error">
+            {{ error }}
+        </div>
+
+    {% endif %}
+
+
+    <form method="POST">
+
+        <input
+            type="hidden"
+            name="csrf_token"
+            value="{{ csrf_token() }}"
+        >
+
+
+        <div class="formulario-grid">
+
+
+            <div class="campo">
+
+                <label for="nombre">
+                    Nombre
+                </label>
+
+                <input
+                    type="text"
+                    id="nombre"
+                    name="nombre"
+                    value="{{ usuario['nombre'] }}"
+                    required
+                >
+
+            </div>
+
+
+            <div class="campo">
+
+                <label for="usuario">
+                    Nombre de usuario
+                </label>
+
+                <input
+                    type="text"
+                    id="usuario"
+                    name="usuario"
+                    value="{{ usuario['usuario'] }}"
+                    required
+                >
+
+            </div>
+
+
+            <div class="campo">
+
+                <label for="rol">
+                    Rol
+                </label>
+
+                <select
+                    id="rol"
+                    name="rol"
+                    required
+                >
+
+                    <option
+                        value="OPERADOR"
+                        {% if usuario["rol"] == "OPERADOR" %}
+                            selected
+                        {% endif %}
+                    >
+                        Operador
+                    </option>
+
+                    <option
+                        value="ADMIN"
+                        {% if usuario["rol"] == "ADMIN" %}
+                            selected
+                        {% endif %}
+                    >
+                        Administrador
+                    </option>
+
+                </select>
+
+            </div>
+
+
+        </div>
+
+
+        <div class="formulario-acciones">
+
+            <button
+                type="submit"
+                class="boton"
+            >
+                Guardar cambios
+            </button>
+
+            <a
+                href="{{ url_for('usuarios') }}"
+                class="boton-secundario"
+            >
+                Cancelar
+            </a>
+
+        </div>
+
+    </form>
+
+</section>
+
+{% endblock %}

@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block title %}
+Cargar protocolo
+{% endblock %}
+
+
+{% block contenido %}
+
+<header class="encabezado">
+
+    <div>
+        <h1>Cargar Protocolo</h1>
+
+        <p>
+            Registrar entradas de protocolo sin cargo.
+        </p>
+    </div>
+
+</header>
+
+
+<section class="panel">
+
+    <form method="POST">
+
+        <input
+            type="hidden"
+            name="csrf_token"
+            value="{{ csrf_token() }}"
+        >
+
+
+        <div class="campo">
+
+            <label for="fecha">
+                Fecha
+            </label>
+
+            <input
+                type="date"
+                id="fecha"
+                name="fecha"
+                value="{{ fecha_predeterminada }}"
+                required
+            >
+
+        </div>
+
+
+        <div class="campo">
+
+            <label for="tipo_protocolo_id">
+                Tipo de protocolo
+            </label>
+
+            <select
+                id="tipo_protocolo_id"
+                name="tipo_protocolo_id"
+                required
+            >
+
+                <option value="">
+                    Seleccionar...
+                </option>
+
+                {% for tipo in tipos_protocolo %}
+
+                    <option value="{{ tipo['id'] }}">
+                        {{ tipo["nombre"] }}
+                    </option>
+
+                {% endfor %}
+
+            </select>
+
+        </div>
+
+
+        <div class="campo">
+
+            <label for="tipo_visita_id">
+                Tipo de visita
+            </label>
+
+            <select
+                id="tipo_visita_id"
+                name="tipo_visita_id"
+                required
+            >
+
+                <option value="">
+                    Seleccionar...
+                </option>
+
+                {% for tipo in tipos_visita %}
+
+                    <option value="{{ tipo['id'] }}">
+                        {{ tipo["nombre"] }}
+                    </option>
+
+                {% endfor %}
+
+            </select>
+
+        </div>
+
+
+        <div class="campo">
+
+            <label for="cantidad">
+                Cantidad de entradas
+            </label>
+
+            <input
+                type="number"
+                id="cantidad"
+                name="cantidad"
+                min="1"
+                step="1"
+                required
+            >
+
+        </div>
+
+        <div class="campo">
+
+            <label for="descripcion">
+                Descripción
+            </label>
+
+            <textarea
+                id="descripcion"
+                name="descripcion"
+                rows="4"
+                placeholder="Ej.: Invitados de Javier Ciccarelli"
+            ></textarea>
+
+        </div>
+
+
+        <div class="formulario-acciones">
+
+            <button
+                type="submit"
+                class="boton"
+            >
+                Guardar
+            </button>
+
+            <a
+                href="{{ url_for('protocolos') }}"
+                class="boton-secundario"
+            >
+                Cancelar
+            </a>
+
+        </div>
+
+    </form>
+
+</section>
+
+{% endblock %}

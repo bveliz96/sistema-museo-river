@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+
+{% block title %}
+Contador de billetes
+{% endblock %}
+
+{% block contenido %}
+
+<header class="encabezado">
+
+    <div>
+        <h1>Contador de billetes</h1>
+
+        <p class="subtitulo">
+            Ingresá la cantidad de billetes de cada denominación
+        </p>
+    </div>
+
+    <a
+        href="{{ url_for('herramientas') }}"
+        class="boton-secundario"
+    >
+        ← Volver a herramientas
+    </a>
+
+</header>
+
+
+<section class="panel contador-billetes">
+
+    <div class="tabla-contenedor">
+
+        <table class="tabla-billetes">
+
+            <thead>
+                <tr>
+                    <th>Denominación</th>
+                    <th>Cantidad</th>
+                    <th>Subtotal</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                <tr>
+                    <td class="denominacion">$20.000</td>
+                    <td>
+                        <input
+                            type="number"
+                            class="cantidad-billetes"
+                            data-denominacion="20000"
+                            min="0"
+                            step="1"
+                            value="0"
+                        >
+                    </td>
+                    <td class="subtotal-billetes">
+                        $0
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="denominacion">$10.000</td>
+                    <td>
+                        <input
+                            type="number"
+                            class="cantidad-billetes"
+                            data-denominacion="10000"
+                            min="0"
+                            step="1"
+                            value="0"
+                        >
+                    </td>
+                    <td class="subtotal-billetes">
+                        $0
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="denominacion">$2.000</td>
+                    <td>
+                        <input
+                            type="number"
+                            class="cantidad-billetes"
+                            data-denominacion="2000"
+                            min="0"
+                            step="1"
+                            value="0"
+                        >
+                    </td>
+                    <td class="subtotal-billetes">
+                        $0
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="denominacion">$1.000</td>
+                    <td>
+                        <input
+                            type="number"
+                            class="cantidad-billetes"
+                            data-denominacion="1000"
+                            min="0"
+                            step="1"
+                            value="0"
+                        >
+                    </td>
+                    <td class="subtotal-billetes">
+                        $0
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="denominacion">$500</td>
+                    <td>
+                        <input
+                            type="number"
+                            class="cantidad-billetes"
+                            data-denominacion="500"
+                            min="0"
+                            step="1"
+                            value="0"
+                        >
+                    </td>
+                    <td class="subtotal-billetes">
+                        $0
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="denominacion">$200</td>
+                    <td>
+                        <input
+                            type="number"
+                            class="cantidad-billetes"
+                            data-denominacion="200"
+                            min="0"
+                            step="1"
+                            value="0"
+                        >
+                    </td>
+                    <td class="subtotal-billetes">
+                        $0
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="denominacion">$100</td>
+                    <td>
+                        <input
+                            type="number"
+                            class="cantidad-billetes"
+                            data-denominacion="100"
+                            min="0"
+                            step="1"
+                            value="0"
+                        >
+                    </td>
+                    <td class="subtotal-billetes">
+                        $0
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="denominacion">$50</td>
+                    <td>
+                        <input
+                            type="number"
+                            class="cantidad-billetes"
+                            data-denominacion="50"
+                            min="0"
+                            step="1"
+                            value="0"
+                        >
+                    </td>
+                    <td class="subtotal-billetes">
+                        $0
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="denominacion">$20</td>
+                    <td>
+                        <input
+                            type="number"
+                            class="cantidad-billetes"
+                            data-denominacion="20"
+                            min="0"
+                            step="1"
+                            value="0"
+                        >
+                    </td>
+                    <td class="subtotal-billetes">
+                        $0
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="denominacion">$10</td>
+                    <td>
+                        <input
+                            type="number"
+                            class="cantidad-billetes"
+                            data-denominacion="10"
+                            min="0"
+                            step="1"
+                            value="0"
+                        >
+                    </td>
+                    <td class="subtotal-billetes">
+                        $0
+                    </td>
+                </tr>
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+
+    <div class="resumen-billetes">
+
+        <div class="tarjeta-total-billetes">
+
+            <span class="total-etiqueta">
+                Cantidad de billetes
+            </span>
+
+            <strong id="cantidad-total-billetes">
+                0
+            </strong>
+
+        </div>
+
+
+        <div class="tarjeta-total-billetes principal">
+
+            <span class="total-etiqueta">
+                Total contado
+            </span>
+
+            <strong id="dinero-total-billetes">
+                $0
+            </strong>
+
+        </div>
+
+    </div>
+
+
+    <div class="acciones-contador">
+
+        <button
+            type="button"
+            id="limpiar-contador"
+            class="boton-peligro"
+        >
+            Limpiar contador
+        </button>
+
+    </div>
+
+</section>
+
+
+<script src="{{ url_for(
+    'static',
+    filename='js/contador_billetes.js'
+) }}"></script>
+
+{% endblock %}

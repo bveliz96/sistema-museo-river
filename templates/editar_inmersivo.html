@@ -1,0 +1,396 @@
+{% extends "base.html" %}
+
+{% block title %}
+Editar ingreso de inmersivo
+{% endblock %}
+
+
+{% block contenido %}
+
+<header class="encabezado">
+
+    <div>
+
+        <h1>Editar ingreso de Inmersivo</h1>
+
+        <p class="subtitulo">
+            Modificar los datos del ingreso
+        </p>
+
+    </div>
+
+    <a
+        href="{{ url_for('inmersivo') }}"
+        class="boton-secundario"
+    >
+        ← Volver
+    </a>
+
+</header>
+
+
+<section class="panel">
+
+    <form method="POST">
+
+        <input
+            type="hidden"
+            name="csrf_token"
+            value="{{ csrf_token() }}"
+        >
+
+
+        <div class="formulario-grid">
+
+
+            <!-- FECHA -->
+
+            <div class="campo">
+
+                <label for="fecha">
+                    Fecha
+                </label>
+
+                <input
+                    type="date"
+                    id="fecha"
+                    name="fecha"
+                    value="{{ registro['fecha'] }}"
+                    required
+                >
+
+            </div>
+
+
+            <!-- HORA -->
+
+            <div class="campo">
+
+                <label for="hora">
+                    Hora
+                </label>
+
+                <input
+                    type="time"
+                    id="hora"
+                    name="hora"
+                    value="{{ registro['hora'] }}"
+                    required
+                >
+
+            </div>
+
+
+            <!-- TIPO DE VISITA -->
+
+            <div class="campo">
+
+                <label for="tipo_visita_id">
+                    Tipo de visita
+                </label>
+
+                <select
+                    id="tipo_visita_id"
+                    name="tipo_visita_id"
+                    required
+                >
+
+                    {% for tipo in tipos_visita %}
+
+                        {% if
+                            tipo["estado"] == "ACTIVO"
+                            or tipo["id"] == registro["tipo_visita_id"]
+                        %}
+
+                            <option
+                                value="{{ tipo['id'] }}"
+
+                                {% if
+                                    tipo["id"]
+                                    == registro["tipo_visita_id"]
+                                %}
+                                    selected
+                                {% endif %}
+                            >
+
+                                {{ tipo["nombre"] }}
+
+                                {% if tipo["estado"] != "ACTIVO" %}
+                                    (Inactivo)
+                                {% endif %}
+
+                            </option>
+
+                        {% endif %}
+
+                    {% endfor %}
+
+                </select>
+
+            </div>
+
+
+            <!-- CANTIDAD -->
+
+            <div class="campo">
+
+                <label for="cantidad">
+                    Cantidad
+                </label>
+
+                <input
+                    type="number"
+                    id="cantidad"
+                    name="cantidad"
+                    min="1"
+                    step="1"
+                    value="{{ registro['cantidad'] }}"
+                    required
+                >
+
+            </div>
+
+
+            <!-- MEDIO DE PAGO -->
+
+            <div class="campo">
+
+                <label for="medio_pago">
+                    Medio de pago
+                </label>
+
+                <select
+                    id="medio_pago"
+                    name="medio_pago"
+                    required
+                >
+
+                    <option
+                        value=""
+                        id="opcion-medio-vacia"
+
+                        {% if not registro["medio_pago"] %}
+                            selected
+                        {% endif %}
+                    >
+                        {% if registro["marca"] == "ONLINE" %}
+                            No corresponde - Pago online
+                        {% else %}
+                            Seleccionar...
+                        {% endif %}
+                    </option>
+
+
+                    <option
+                        value="EFECTIVO"
+
+                        {% if registro["medio_pago"] == "EFECTIVO" %}
+                            selected
+                        {% endif %}
+                    >
+                        EFECTIVO
+                    </option>
+
+
+                    <option
+                        value="TARJETA"
+
+                        {% if registro["medio_pago"] == "TARJETA" %}
+                            selected
+                        {% endif %}
+                    >
+                        TARJETA
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <!-- OPCIONES -->
+
+            <div class="campo">
+
+                <label>
+                    Opciones
+                </label>
+
+                <div class="opciones-inmersivo">
+
+
+                    <!-- ONLINE -->
+
+                    <label class="opcion-inmersivo">
+
+                        <input
+                            type="checkbox"
+                            id="online"
+                            name="online"
+                            value="1"
+
+                            {% if registro["marca"] == "ONLINE" %}
+                                checked
+                            {% endif %}
+                        >
+
+                        <span>
+                            Online
+                        </span>
+
+                    </label>
+
+
+                    <!-- DIFERENCIA -->
+
+                    <label class="opcion-inmersivo">
+
+                        <input
+                            type="checkbox"
+                            id="diferencia"
+                            name="diferencia"
+                            value="1"
+
+                            {% if registro["marca"] == "DIFERENCIA" %}
+                                checked
+                            {% endif %}
+                        >
+
+                        <span>
+                            Diferencia
+                        </span>
+
+                    </label>
+
+
+                </div>
+
+            </div>
+
+
+        </div>
+
+
+        <!-- ACCIONES -->
+
+        <div class="formulario-acciones">
+
+            <button
+                type="submit"
+                class="boton"
+            >
+                Guardar cambios
+            </button>
+
+            <a
+                href="{{ url_for('inmersivo') }}"
+                class="boton-secundario"
+            >
+                Cancelar
+            </a>
+
+        </div>
+
+    </form>
+
+</section>
+
+
+<script>
+
+const online = document.getElementById(
+    "online"
+);
+
+const diferencia = document.getElementById(
+    "diferencia"
+);
+
+const medioPago = document.getElementById(
+    "medio_pago"
+);
+
+const opcionMedioVacia = document.getElementById(
+    "opcion-medio-vacia"
+);
+
+
+/* --------------------------------
+   ACTUALIZAR MEDIO DE PAGO
+-------------------------------- */
+
+function actualizarMedioPago() {
+
+    if (online.checked) {
+
+        medioPago.value = "";
+
+        medioPago.disabled = true;
+
+        medioPago.required = false;
+
+        opcionMedioVacia.textContent =
+            "No corresponde - Pago online";
+
+    } else {
+
+        medioPago.disabled = false;
+
+        medioPago.required = true;
+
+        opcionMedioVacia.textContent =
+            "Seleccionar...";
+
+    }
+
+}
+
+
+/* --------------------------------
+   ONLINE
+-------------------------------- */
+
+online.addEventListener(
+    "change",
+    function () {
+
+        if (this.checked) {
+
+            diferencia.checked = false;
+
+        }
+
+        actualizarMedioPago();
+
+    }
+);
+
+
+/* --------------------------------
+   DIFERENCIA
+-------------------------------- */
+
+diferencia.addEventListener(
+    "change",
+    function () {
+
+        if (this.checked) {
+
+            online.checked = false;
+
+        }
+
+        actualizarMedioPago();
+
+    }
+);
+
+
+/* --------------------------------
+   ESTADO INICIAL
+-------------------------------- */
+
+actualizarMedioPago();
+
+</script>
+
+{% endblock %}

@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Configuración inicial
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for(
+            'static',
+            filename='css/estilos.css'
+        ) }}"
+    >
+
+</head>
+
+<body class="pagina-login">
+
+    <main class="login-contenedor">
+
+        <section class="login-panel">
+
+            <header class="login-encabezado">
+
+                <h1>
+                    Sistema Museo River
+                </h1>
+
+                <p>
+                    Crear el administrador inicial
+                </p>
+
+            </header>
+
+
+            {% if error %}
+
+                <div class="mensaje-error">
+                    {{ error }}
+                </div>
+
+            {% endif %}
+
+
+            <form method="POST">
+
+                <input
+                    type="hidden"
+                    name="csrf_token"
+                    value="{{ csrf_token() }}"
+                >
+
+
+                <div class="campo">
+
+                    <label for="nombre">
+                        Nombre completo
+                    </label>
+
+                    <input
+                        type="text"
+                        id="nombre"
+                        name="nombre"
+                        required
+                        autofocus
+                    >
+
+                </div>
+
+
+                <div class="campo">
+
+                    <label for="usuario">
+                        Nombre de usuario
+                    </label>
+
+                    <input
+                        type="text"
+                        id="usuario"
+                        name="usuario"
+                        autocomplete="username"
+                        required
+                    >
+
+                </div>
+
+
+                <div class="campo">
+
+                    <label for="password">
+                        Contraseña
+                    </label>
+
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        minlength="8"
+                        autocomplete="new-password"
+                        required
+                    >
+
+                </div>
+
+
+                <div class="campo">
+
+                    <label for="confirmacion">
+                        Confirmar contraseña
+                    </label>
+
+                    <input
+                        type="password"
+                        id="confirmacion"
+                        name="confirmacion"
+                        minlength="8"
+                        autocomplete="new-password"
+                        required
+                    >
+
+                </div>
+
+
+                <button
+                    type="submit"
+                    class="boton login-boton"
+                >
+                    Crear administrador
+                </button>
+
+            </form>
+
+        </section>
+
+    </main>
+
+</body>
+
+</html>

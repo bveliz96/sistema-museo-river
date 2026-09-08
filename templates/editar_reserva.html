@@ -1,0 +1,466 @@
+{% extends "base.html" %}
+
+{% block title %}
+Editar reserva
+{% endblock %}
+
+
+{% block contenido %}
+
+<header class="encabezado">
+
+    <div>
+
+        <h1>Editar Reserva</h1>
+
+        <p class="subtitulo">
+            Modificar los datos de la reserva
+        </p>
+
+    </div>
+
+    <a
+        href="{{ url_for('reservas') }}"
+        class="boton-secundario"
+    >
+        ← Volver
+    </a>
+
+</header>
+
+
+<section class="panel">
+
+    <form
+        method="POST"
+        id="form-reserva"
+    >
+
+        <input
+            type="hidden"
+            name="csrf_token"
+            value="{{ csrf_token() }}"
+        >
+
+
+        <div class="formulario-grid">
+
+
+            <!-- FECHA -->
+
+            <div class="campo">
+
+                <label for="fecha">
+                    Día
+                </label>
+
+                <input
+                    type="date"
+                    id="fecha"
+                    name="fecha"
+                    value="{{ reserva['fecha'] }}"
+                    required
+                >
+
+            </div>
+
+
+            <!-- HORA -->
+
+            <div class="campo">
+
+                <label for="hora">
+                    Hora de la visita
+                </label>
+
+                <input
+                    type="time"
+                    id="hora"
+                    name="hora"
+                    value="{{ reserva['hora'] or '' }}"
+                    required
+                >
+
+            </div>
+
+
+            <!-- EMPRESA -->
+
+            <div class="campo">
+
+                <label for="empresa_id">
+                    Empresa
+                </label>
+
+                <select
+                    id="empresa_id"
+                    name="empresa_id"
+                    required
+                >
+
+                    {% for empresa in empresas %}
+
+                        <option
+                            value="{{ empresa['id'] }}"
+
+                            {% if empresa['id'] == reserva['empresa_id'] %}
+                                selected
+                            {% endif %}
+                        >
+
+                            {{ empresa['nombre'] }}
+
+                            {% if empresa['estado'] != 'ACTIVA' %}
+                                (Inactiva)
+                            {% endif %}
+
+                        </option>
+
+                    {% endfor %}
+
+                </select>
+
+            </div>
+
+
+            <!-- TIPO DE VISITA -->
+
+            <div class="campo">
+
+                <label for="tipo_visita_id">
+                    Tipo de visita
+                </label>
+
+                <select
+                    id="tipo_visita_id"
+                    name="tipo_visita_id"
+                    required
+                >
+
+                    {% for tipo in tipos_visita %}
+
+                        {% if
+                            tipo["estado"] == "ACTIVO"
+                            or tipo["id"] == reserva["tipo_visita_id"]
+                        %}
+
+                            <option
+                                value="{{ tipo['id'] }}"
+
+                                {% if
+                                    tipo["id"]
+                                    == reserva["tipo_visita_id"]
+                                %}
+                                    selected
+                                {% endif %}
+                            >
+
+                                {{ tipo["nombre"] }}
+
+                                {% if tipo["estado"] != "ACTIVO" %}
+                                    (Inactivo)
+                                {% endif %}
+
+                            </option>
+
+                        {% endif %}
+
+                    {% endfor %}
+
+                </select>
+
+            </div>
+
+
+            <!-- NOMBRE DE RESERVA -->
+
+            <div class="campo">
+
+                <label for="nombre_reserva">
+                    Reserva a nombre de
+                </label>
+
+                <input
+                    type="text"
+                    id="nombre_reserva"
+                    name="nombre_reserva"
+                    value="{{ reserva['nombre_reserva'] }}"
+                    required
+                >
+
+            </div>
+
+
+            <!-- MAYORES -->
+
+            <div class="campo">
+
+                <label for="mayores">
+                    Mayores
+                </label>
+
+                <input
+                    type="number"
+                    id="mayores"
+                    name="mayores"
+                    min="0"
+                    step="1"
+                    value="{{ reserva['mayores'] }}"
+                    required
+                >
+
+            </div>
+
+
+            <!-- MENORES -->
+
+            <div class="campo">
+
+                <label for="menores">
+                    Menores
+                </label>
+
+                <input
+                    type="number"
+                    id="menores"
+                    name="menores"
+                    min="0"
+                    step="1"
+                    value="{{ reserva['menores'] }}"
+                    required
+                >
+
+            </div>
+
+
+            <!-- ERROR PASAJEROS -->
+
+            <div
+                class="campo campo-completo"
+                id="contenedor-error-pasajeros"
+                style="display: none;"
+            >
+
+                <p
+                    style="
+                        margin: 0;
+                        color: #E30613;
+                        font-size: 14px;
+                        font-weight: 600;
+                    "
+                >
+                    La reserva debe tener al menos 1 pasajero.
+                </p>
+
+            </div>
+
+
+            <!-- NACIONALIDAD -->
+
+            <div class="campo">
+
+                <label for="nacionalidad">
+                    Nacionalidad
+                </label>
+
+                <select
+                    id="nacionalidad"
+                    name="nacionalidad"
+                    required
+                >
+
+                    <option
+                        value="NACIONAL"
+
+                        {% if reserva['nacionalidad'] == 'NACIONAL' %}
+                            selected
+                        {% endif %}
+                    >
+                        Nacional
+                    </option>
+
+                    <option
+                        value="EXTRANJERO"
+
+                        {% if reserva['nacionalidad'] == 'EXTRANJERO' %}
+                            selected
+                        {% endif %}
+                    >
+                        Extranjero
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <!-- VOUCHER -->
+
+            <div class="campo">
+
+                <label for="voucher">
+                    Número de voucher
+                </label>
+
+                <input
+                    type="text"
+                    id="voucher"
+                    name="voucher"
+                    value="{{ reserva['voucher'] or '' }}"
+                >
+
+            </div>
+
+
+            <!-- GUÍA -->
+
+            <div class="campo">
+
+                <label for="guia">
+                    Guía
+                </label>
+
+                <input
+                    type="text"
+                    id="guia"
+                    name="guia"
+                    value="{{ reserva['guia'] or '' }}"
+                >
+
+            </div>
+
+
+            <!-- NOTAS -->
+
+            <div class="campo">
+
+                <label for="notas">
+                    Notas
+                </label>
+
+                <textarea
+                    id="notas"
+                    name="notas"
+                    rows="5"
+                >{{ reserva['notas'] or '' }}</textarea>
+
+            </div>
+
+
+        </div>
+
+
+        <!-- ACCIONES -->
+
+        <div class="formulario-acciones">
+
+            <button
+                type="submit"
+                class="boton"
+            >
+                Guardar cambios
+            </button>
+
+            <a
+                href="{{ url_for('reservas') }}"
+                class="boton-secundario"
+            >
+                Cancelar
+            </a>
+
+        </div>
+
+    </form>
+
+</section>
+
+
+<script>
+
+const formularioReserva =
+    document.getElementById(
+        "form-reserva"
+    );
+
+const mayores =
+    document.getElementById(
+        "mayores"
+    );
+
+const menores =
+    document.getElementById(
+        "menores"
+    );
+
+const contenedorErrorPasajeros =
+    document.getElementById(
+        "contenedor-error-pasajeros"
+    );
+
+
+function validarPasajeros() {
+
+    const cantidadMayores =
+        parseInt(
+            mayores.value
+        ) || 0;
+
+    const cantidadMenores =
+        parseInt(
+            menores.value
+        ) || 0;
+
+
+    const totalPasajeros =
+        cantidadMayores
+        + cantidadMenores;
+
+
+    if (totalPasajeros <= 0) {
+
+        contenedorErrorPasajeros.style.display =
+            "block";
+
+        return false;
+
+    }
+
+
+    contenedorErrorPasajeros.style.display =
+        "none";
+
+    return true;
+
+}
+
+
+formularioReserva.addEventListener(
+    "submit",
+    function (event) {
+
+        if (!validarPasajeros()) {
+
+            event.preventDefault();
+
+            mayores.focus();
+
+        }
+
+    }
+);
+
+
+mayores.addEventListener(
+    "input",
+    validarPasajeros
+);
+
+
+menores.addEventListener(
+    "input",
+    validarPasajeros
+);
+
+</script>
+
+{% endblock %}

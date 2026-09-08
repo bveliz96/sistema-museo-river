@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block title %}
+Empresas
+{% endblock %}
+
+
+{% block contenido %}
+
+<header class="encabezado">
+
+    <div>
+
+        <h1>Empresas</h1>
+
+        <p class="subtitulo">
+            Empresas que realizan reservas en el museo
+        </p>
+
+    </div>
+
+
+    <a
+        href="/empresas/nueva_empresa"
+        class="boton"
+    >
+        + Nueva Empresa
+    </a>
+
+</header>
+
+
+<section class="panel">
+
+    {% if empresas %}
+
+        <div class="tabla-contenedor">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>Empresa</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                        
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody>
+
+                    {% for empresa in empresas %}
+
+                        <tr>
+
+                            <td>
+                                {{ empresa["nombre"] }}
+                            </td>
+
+                            <td>
+
+                                {% if empresa["estado"] == "ACTIVA" %}
+
+                                <span class="estado-activa">
+                                    Activa
+                                </span>
+
+                                {% else %}
+
+                                <span class="estado-anulada">
+                                    Inactiva
+                                </span>
+
+                                {% endif %}
+
+                            </td>
+
+                            <td>
+
+                                <a
+                                    href="/empresas/{{ empresa['id'] }}/editar"
+                                    class="boton"
+                                >
+                                    Editar
+                                </a>
+                                {% if empresa["estado"] == "ACTIVA" %}
+
+                                <form
+                                    method="POST"
+                                    action="/empresas/{{ empresa['id'] }}/inactivar"
+                                    style="display: inline;"
+                                    onsubmit="return confirm('¿Seguro que querés inactivar esta empresa?');"
+                                    >
+
+                                    <input
+                                        type="hidden"
+                                        name="csrf_token"
+                                        value="{{ csrf_token() }}"
+                                    >
+
+                                    <button
+                                        type="submit"
+                                        class="boton-anular"
+                                        >
+                                        Inactivar
+                                 </button>
+
+                                </form>
+
+                                {% else %}
+
+                                <form
+                                    method="POST"
+                                    action="/empresas/{{ empresa['id'] }}/activar"
+                                    style="display: inline;"
+                                    >
+
+                                    <button
+                                        type="submit"
+                                        class="boton"
+                                        >
+                                        Activar
+                                    </button>
+
+                                </form>
+
+                                {% endif %}
+
+                            </td>
+
+                        </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    {% else %}
+
+        <div class="sin-datos">
+
+            <p>
+                No hay empresas cargadas.
+            </p>
+
+        </div>
+
+    {% endif %}
+
+</section>
+
+{% endblock %}

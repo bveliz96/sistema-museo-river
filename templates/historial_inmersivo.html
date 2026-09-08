@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}
+Historial de inmersivo
+{% endblock %}
+
+
+{% block contenido %}
+
+<header class="encabezado">
+
+    <div>
+
+        <h1>Historial de inmersivo</h1>
+
+        <p class="subtitulo">
+            {{ registro["tipo_visita_nombre"] }}
+        </p>
+
+    </div>
+
+    <a
+        href="{{ url_for('inmersivo') }}"
+        class="boton-secundario"
+    >
+        ← Volver
+    </a>
+
+</header>
+
+
+<section class="panel">
+
+    <p>
+        <strong>Fecha:</strong>
+
+        {{ registro["fecha"][8:10] }}/{{ registro["fecha"][5:7] }}/{{ registro["fecha"][0:4] }}
+    </p>
+
+    <p>
+        <strong>Hora:</strong>
+        {{ registro["hora"] }}
+    </p>
+
+    <p>
+        <strong>Cantidad:</strong>
+        {{ registro["cantidad"] }}
+    </p>
+
+    <p>
+        <strong>Medio de pago:</strong>
+        {{ registro["medio_pago"] }}
+    </p>
+
+    <p>
+        <strong>Marca:</strong>
+        {{ registro["marca"] or "—" }}
+    </p>
+
+    <p>
+        <strong>Estado:</strong>
+        {{ registro["estado"] }}
+    </p>
+
+</section>
+
+
+<section class="panel">
+
+    <table>
+
+        <thead>
+
+            <tr>
+                <th>Fecha y hora</th>
+                <th>Usuario</th>
+                <th>Acción</th>
+                <th>Detalle</th>
+            </tr>
+
+        </thead>
+
+        <tbody>
+
+            {% for movimiento in historial %}
+
+            <tr>
+
+                <td>
+                    {{ movimiento["fecha_hora"][8:10] }}/{{ movimiento["fecha_hora"][5:7] }}/{{ movimiento["fecha_hora"][0:4] }}
+
+                    {{ movimiento["fecha_hora"][11:16] }}
+                </td>
+
+                <td>
+                    {{ movimiento["usuario_nombre"] }}
+                </td>
+
+                <td>
+                    <strong>
+                        {{ movimiento["accion"] }}
+                    </strong>
+                </td>
+
+                <td>
+                    {{ movimiento["detalle"] }}
+                </td>
+
+            </tr>
+
+            {% else %}
+
+            <tr>
+
+                <td colspan="4">
+                    No hay movimientos registrados.
+                </td>
+
+            </tr>
+
+            {% endfor %}
+
+        </tbody>
+
+    </table>
+
+</section>
+
+{% endblock %}

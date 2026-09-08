@@ -1,0 +1,433 @@
+{% extends "base.html" %}
+
+{% block title %}
+Nueva reserva
+{% endblock %}
+
+
+{% block contenido %}
+
+<header class="encabezado">
+
+    <div>
+
+        <h1>
+            Nueva Reserva
+        </h1>
+
+        <p class="subtitulo">
+            Cargar los datos de la visita
+        </p>
+
+    </div>
+
+</header>
+
+
+<section class="panel">
+
+    <form
+        method="POST"
+        id="form-reserva"
+    >
+
+        <input
+            type="hidden"
+            name="csrf_token"
+            value="{{ csrf_token() }}"
+        >
+
+
+        <div class="formulario-grid">
+
+
+            <!-- DÍA -->
+
+            <div class="campo">
+
+                <label for="fecha">
+                    Día *
+                </label>
+
+                <input
+                    type="date"
+                    id="fecha"
+                    name="fecha"
+                    value="{{ fecha_predeterminada }}"
+                    required
+                >
+
+            </div>
+
+
+            <!-- HORA -->
+
+            <div class="campo">
+
+                <label for="hora">
+                    Hora de la visita *
+                </label>
+
+                <input
+                    type="time"
+                    id="hora"
+                    name="hora"
+                    value="{{ hora_predeterminada }}"
+                    required
+                >
+
+            </div>
+
+
+            <!-- EMPRESA -->
+
+            <div class="campo">
+
+                <label for="empresa_id">
+                    Empresa *
+                </label>
+
+                <select
+                    id="empresa_id"
+                    name="empresa_id"
+                    required
+                >
+
+                    <option value="">
+                        Seleccionar empresa
+                    </option>
+
+                    {% for empresa in empresas %}
+
+                        <option
+                            value="{{ empresa['id'] }}"
+                        >
+                            {{ empresa['nombre'] }}
+                        </option>
+
+                    {% endfor %}
+
+                </select>
+
+            </div>
+
+
+            <!-- TIPO DE VISITA -->
+
+            <div class="campo">
+
+                <label for="tipo_visita_id">
+                    Tipo de visita *
+                </label>
+
+                <select
+                    id="tipo_visita_id"
+                    name="tipo_visita_id"
+                    required
+                >
+
+                    <option value="">
+                        Seleccionar...
+                    </option>
+
+                    {% for tipo in tipos_visita %}
+
+                        <option
+                            value="{{ tipo['id'] }}"
+                        >
+                            {{ tipo['nombre'] }}
+                        </option>
+
+                    {% endfor %}
+
+                </select>
+
+            </div>
+
+
+            <!-- NACIONALIDAD -->
+
+            <div class="campo">
+
+                <label for="nacionalidad">
+                    Nacionalidad *
+                </label>
+
+                <select
+                    id="nacionalidad"
+                    name="nacionalidad"
+                    required
+                >
+
+                    <option value="">
+                        Seleccionar
+                    </option>
+
+                    <option value="NACIONAL">
+                        NACIONAL
+                    </option>
+
+                    <option value="EXTRANJERO">
+                        EXTRANJERO
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <!-- NOMBRE RESERVA -->
+
+            <div class="campo campo-completo">
+
+                <label for="nombre_reserva">
+                    Reserva a nombre de *
+                </label>
+
+                <input
+                    type="text"
+                    id="nombre_reserva"
+                    name="nombre_reserva"
+                    placeholder="Ej. Juan Pérez"
+                    required
+                >
+
+            </div>
+
+
+            <!-- MAYORES -->
+
+            <div class="campo">
+
+                <label for="mayores">
+                    Mayores *
+                </label>
+
+                <input
+                    type="number"
+                    id="mayores"
+                    name="mayores"
+                    min="0"
+                    step="1"
+                    value="0"
+                    required
+                >
+
+            </div>
+
+
+            <!-- MENORES -->
+
+            <div class="campo">
+
+                <label for="menores">
+                    Menores *
+                </label>
+
+                <input
+                    type="number"
+                    id="menores"
+                    name="menores"
+                    min="0"
+                    step="1"
+                    value="0"
+                    required
+                >
+
+            </div>
+
+
+            <!-- ERROR PASAJEROS -->
+
+            <div
+                class="campo campo-completo"
+                id="contenedor-error-pasajeros"
+                style="display: none;"
+            >
+
+                <p
+                    id="error-pasajeros"
+                    style="
+                        margin: 0;
+                        color: #E30613;
+                        font-size: 14px;
+                        font-weight: 600;
+                    "
+                >
+                    La reserva debe tener al menos 1 pasajero.
+                </p>
+
+            </div>
+
+
+            <!-- VOUCHER -->
+
+            <div class="campo">
+
+                <label for="voucher">
+                    Número de voucher
+                </label>
+
+                <input
+                    type="text"
+                    id="voucher"
+                    name="voucher"
+                    placeholder="Opcional"
+                >
+
+            </div>
+
+
+            <!-- GUÍA -->
+
+            <div class="campo">
+
+                <label for="guia">
+                    Guía
+                </label>
+
+                <input
+                    type="text"
+                    id="guia"
+                    name="guia"
+                    placeholder="Opcional"
+                >
+
+            </div>
+
+
+            <!-- NOTAS -->
+
+            <div class="campo campo-completo">
+
+                <label for="notas">
+                    Notas
+                </label>
+
+                <textarea
+                    id="notas"
+                    name="notas"
+                    rows="4"
+                    placeholder="Información adicional sobre la reserva..."
+                ></textarea>
+
+            </div>
+
+
+        </div>
+
+
+        <!-- ACCIONES -->
+
+        <div class="formulario-acciones">
+
+            <a
+                href="{{ url_for('reservas') }}"
+                class="boton-secundario"
+            >
+                Cancelar
+            </a>
+
+            <button
+                type="submit"
+                class="boton"
+            >
+                Guardar reserva
+            </button>
+
+        </div>
+
+    </form>
+
+</section>
+
+
+<script>
+
+const formularioReserva =
+    document.getElementById(
+        "form-reserva"
+    );
+
+const mayores =
+    document.getElementById(
+        "mayores"
+    );
+
+const menores =
+    document.getElementById(
+        "menores"
+    );
+
+const contenedorErrorPasajeros =
+    document.getElementById(
+        "contenedor-error-pasajeros"
+    );
+
+
+function validarPasajeros() {
+
+    const cantidadMayores =
+        parseInt(
+            mayores.value
+        ) || 0;
+
+    const cantidadMenores =
+        parseInt(
+            menores.value
+        ) || 0;
+
+
+    const totalPasajeros =
+        cantidadMayores
+        + cantidadMenores;
+
+
+    if (totalPasajeros <= 0) {
+
+        contenedorErrorPasajeros.style.display =
+            "block";
+
+        return false;
+
+    }
+
+
+    contenedorErrorPasajeros.style.display =
+        "none";
+
+    return true;
+
+}
+
+
+formularioReserva.addEventListener(
+    "submit",
+    function (event) {
+
+        if (!validarPasajeros()) {
+
+            event.preventDefault();
+
+            mayores.focus();
+
+        }
+
+    }
+);
+
+
+mayores.addEventListener(
+    "input",
+    validarPasajeros
+);
+
+
+menores.addEventListener(
+    "input",
+    validarPasajeros
+);
+
+</script>
+
+{% endblock %}

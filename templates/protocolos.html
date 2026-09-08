@@ -1,0 +1,552 @@
+{% extends "base.html" %}
+
+{% block title %}
+Protocolos
+{% endblock %}
+
+
+{% block contenido %}
+
+<header class="encabezado">
+
+    <div>
+        <h1>Protocolos</h1>
+    </div>
+
+    <div class="encabezado-acciones">
+
+        <a
+            href="{{ url_for(
+                'exportar_protocolos',
+                fecha_desde=filtros['fecha_desde'],
+                fecha_hasta=filtros['fecha_hasta'],
+                tipo_protocolo_id=filtros['tipo_protocolo_id'],
+                tipo_visita_id=filtros['tipo_visita_id'],
+                estado=filtros['estado']
+            ) }}"
+            class="boton-secundario"
+        >
+            📥 Exportar Excel
+        </a>
+
+        <a
+            href="{{ url_for('nuevo_protocolo') }}"
+            class="boton"
+        >
+            + Cargar Protocolo
+        </a>
+
+    </div>
+
+</header>
+
+
+<!-- ============================= -->
+<!-- FILTROS -->
+<!-- ============================= -->
+
+<section class="panel filtros">
+
+    <form method="GET">
+
+        <div class="filtros-grid">
+
+
+            <div>
+
+                <label for="fecha_desde">
+                    Desde
+                </label>
+
+                <input
+                    type="date"
+                    id="fecha_desde"
+                    name="fecha_desde"
+                    value="{{ filtros['fecha_desde'] }}"
+                >
+
+            </div>
+
+
+            <div>
+
+                <label for="fecha_hasta">
+                    Hasta
+                </label>
+
+                <input
+                    type="date"
+                    id="fecha_hasta"
+                    name="fecha_hasta"
+                    value="{{ filtros['fecha_hasta'] }}"
+                >
+
+            </div>
+
+
+            <div>
+
+                <label for="tipo_protocolo_id">
+                    Tipo de protocolo
+                </label>
+
+                <select
+                    id="tipo_protocolo_id"
+                    name="tipo_protocolo_id"
+                >
+
+                    <option value="">
+                        Todos
+                    </option>
+
+                    {% for tipo in tipos_protocolo %}
+
+                        <option
+                            value="{{ tipo['id'] }}"
+
+                            {% if
+                                filtros['tipo_protocolo_id']|string
+                                == tipo['id']|string
+                            %}
+                                selected
+                            {% endif %}
+                        >
+                            {{ tipo["nombre"] }}
+
+                            {% if tipo["estado"] != "ACTIVO" %}
+                                (Inactivo)
+                            {% endif %}
+
+                        </option>
+
+                    {% endfor %}
+
+                </select>
+
+            </div>
+
+
+            <div>
+
+                <label for="tipo_visita_id">
+                    Tipo de visita
+                </label>
+
+                <select
+                    id="tipo_visita_id"
+                    name="tipo_visita_id"
+                >
+
+                    <option value="">
+                        Todas
+                    </option>
+
+                    {% for tipo in tipos_visita %}
+
+                        <option
+                            value="{{ tipo['id'] }}"
+
+                            {% if
+                                filtros['tipo_visita_id']|string
+                                == tipo['id']|string
+                            %}
+                                selected
+                            {% endif %}
+                        >
+                            {{ tipo["nombre"] }}
+
+                            {% if tipo["estado"] != "ACTIVO" %}
+                                (Inactivo)
+                            {% endif %}
+
+                        </option>
+
+                    {% endfor %}
+
+                </select>
+
+            </div>
+
+
+            <div>
+
+                <label for="estado">
+                    Estado
+                </label>
+
+                <select
+                    id="estado"
+                    name="estado"
+                >
+
+                    <option
+                        value="ACTIVO"
+                        {% if filtros["estado"] == "ACTIVO" %}
+                            selected
+                        {% endif %}
+                    >
+                        Activos
+                    </option>
+
+                    <option
+                        value="ANULADO"
+                        {% if filtros["estado"] == "ANULADO" %}
+                            selected
+                        {% endif %}
+                    >
+                        Anulados
+                    </option>
+
+                    <option
+                        value=""
+                        {% if filtros["estado"] == "" %}
+                            selected
+                        {% endif %}
+                    >
+                        Todos
+                    </option>
+
+                </select>
+
+            </div>
+
+        </div>
+
+
+        <div class="filtros-botones">
+
+            <button
+                type="submit"
+                class="boton"
+            >
+                🔎 Buscar
+            </button>
+
+            <a
+                href="{{ url_for('protocolos') }}"
+                class="boton-secundario"
+            >
+                Limpiar
+            </a>
+
+        </div>
+
+    </form>
+
+</section>
+
+
+<!-- ============================= -->
+<!-- RESULTADOS -->
+<!-- ============================= -->
+
+<div class="resultado-info">
+
+    <strong>
+        {{ total_entradas }}
+    </strong>
+    entradas de protocolo
+
+    &nbsp;•&nbsp;
+
+    {{ total_registros }}
+    registros encontrados
+
+</div>
+
+
+<!-- ============================= -->
+<!-- TABLA -->
+<!-- ============================= -->
+
+<section class="panel">
+
+    <table>
+
+        <thead>
+
+            <tr>
+
+                <th>Fecha</th>
+                <th>Tipo de protocolo</th>
+                <th>Tipo de visita</th>
+                <th>Cantidad</th>
+                <th>Descripción</th>
+                <th>Cargado por</th>
+                <th>Cargado el</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+
+            </tr>
+
+        </thead>
+
+
+        <tbody>
+
+            {% for protocolo in protocolos %}
+
+            <tr>
+
+                <td>
+
+                    {% if protocolo["fecha"] %}
+
+                        {{ protocolo["fecha"][8:10] }}/{{ protocolo["fecha"][5:7] }}/{{ protocolo["fecha"][0:4] }}
+
+                    {% endif %}
+
+                </td>
+
+
+                <td>
+                    {{ protocolo["tipo_protocolo_nombre"] }}
+                </td>
+
+
+                <td>
+                    {{ protocolo["tipo_visita_nombre"] }}
+                </td>
+
+
+                <td>
+                    <strong>
+                        {{ protocolo["cantidad"] }}
+                    </strong>
+                </td>
+
+                <td>
+                    {{ protocolo["descripcion"] or "—" }}  
+                </td>
+
+
+                <td>
+                    {{ protocolo["usuario_nombre"] }}
+                </td>
+
+
+                <td>
+
+                    {% if protocolo["creado_en"] %}
+
+                        {{ protocolo["creado_en"][8:10] }}/{{ protocolo["creado_en"][5:7] }}/{{ protocolo["creado_en"][0:4] }}
+
+                        {{ protocolo["creado_en"][11:16] }}
+
+                    {% endif %}
+
+                </td>
+
+
+                <td>
+
+                    {% if protocolo["estado"] == "ACTIVO" %}
+
+                        <span class="estado-activa">
+                            ACTIVO
+                        </span>
+
+                    {% else %}
+
+                        <span class="estado-anulada">
+                            {{ protocolo["estado"] }}
+                        </span>
+
+                    {% endif %}
+
+                </td>
+
+                <td>
+
+                    <div class="acciones-reserva">
+
+                        <a
+                            href="{{ url_for(
+                                'editar_protocolo',
+                                id=protocolo['id']
+                            ) }}"
+                            class="boton-secundario"
+                        >
+                            Editar
+                        </a>
+
+                        <a
+                            href="{{ url_for(
+                                'historial_protocolo',
+                                id=protocolo['id']
+                            ) }}"
+                            class="boton-secundario"
+                        >
+                            Historial
+                        </a>
+
+
+                        {% if protocolo["estado"] == "ACTIVO" %}
+
+                            <form
+                                method="POST"
+                                action="{{ url_for(
+                                    'anular_protocolo',
+                                    id=protocolo['id']
+                                ) }}"
+                            >
+
+                                <input
+                                    type="hidden"
+                                    name="csrf_token"
+                                    value="{{ csrf_token() }}"
+                                >
+
+                                <button
+                                    type="submit"
+                                    class="boton-peligro"
+                                    onclick="return confirm(
+                                        '¿Seguro que querés anular este protocolo?'
+                                    )"
+                                >
+                                    Anular
+                                </button>
+
+                            </form>
+
+                        {% else %}
+
+                            <form
+                                method="POST"
+                                action="{{ url_for(
+                                    'reactivar_protocolo',
+                                    id=protocolo['id']
+                                ) }}"
+                            >
+
+                                <input
+                                    type="hidden"
+                                    name="csrf_token"
+                                    value="{{ csrf_token() }}"
+                                >
+
+                                <button
+                                    type="submit"
+                                    class="boton-reactivar"
+                                >
+                                    Reactivar
+                                </button>
+
+                            </form>
+
+                        {% endif %}
+
+                    </div>
+
+                </td>
+
+            </tr>
+
+
+            {% else %}
+
+            <tr>
+
+                <td colspan="9">
+                    No hay protocolos cargados.
+                </td>
+
+            </tr>
+
+            {% endfor %}
+
+        </tbody>
+
+    </table>
+
+</section>
+
+
+<!-- ============================= -->
+<!-- PAGINACIÓN -->
+<!-- ============================= -->
+
+{% if total_paginas > 1 %}
+
+<div class="paginacion">
+
+
+    {% if pagina > 1 %}
+
+        <a
+            class="pagina"
+            href="{{ url_for(
+                'protocolos',
+                pagina=pagina - 1,
+                fecha_desde=filtros['fecha_desde'],
+                fecha_hasta=filtros['fecha_hasta'],
+                tipo_protocolo_id=filtros['tipo_protocolo_id'],
+                tipo_visita_id=filtros['tipo_visita_id'],
+                estado=filtros['estado']
+            ) }}"
+        >
+            ‹
+        </a>
+
+    {% endif %}
+
+
+    <div class="paginas">
+
+        {% for numero in paginas %}
+
+            {% if numero == pagina %}
+
+                <span class="pagina pagina-actual">
+                    {{ numero }}
+                </span>
+
+            {% else %}
+
+                <a
+                    class="pagina"
+                    href="{{ url_for(
+                        'protocolos',
+                        pagina=numero,
+                        fecha_desde=filtros['fecha_desde'],
+                        fecha_hasta=filtros['fecha_hasta'],
+                        tipo_protocolo_id=filtros['tipo_protocolo_id'],
+                        tipo_visita_id=filtros['tipo_visita_id'],
+                        estado=filtros['estado']
+                    ) }}"
+                >
+                    {{ numero }}
+                </a>
+
+            {% endif %}
+
+        {% endfor %}
+
+    </div>
+
+
+    {% if pagina < total_paginas %}
+
+        <a
+            class="pagina"
+            href="{{ url_for(
+                'protocolos',
+                pagina=pagina + 1,
+                fecha_desde=filtros['fecha_desde'],
+                fecha_hasta=filtros['fecha_hasta'],
+                tipo_protocolo_id=filtros['tipo_protocolo_id'],
+                tipo_visita_id=filtros['tipo_visita_id'],
+                estado=filtros['estado']
+            ) }}"
+        >
+            ›
+        </a>
+
+    {% endif %}
+
+
+</div>
+
+{% endif %}
+
+{% endblock %}

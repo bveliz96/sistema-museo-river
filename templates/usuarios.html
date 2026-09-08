@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block title %}
+Usuarios
+{% endblock %}
+
+
+{% block contenido %}
+
+<header class="encabezado">
+
+    <div>
+
+        <h1>Usuarios</h1>
+
+        <p class="subtitulo">
+            Personas autorizadas para acceder al sistema
+        </p>
+
+    </div>
+
+    <a
+        href="{{ url_for('nuevo_usuario') }}"
+        class="boton"
+    >
+        + Nuevo Usuario
+    </a>
+
+</header>
+
+{% with mensajes = get_flashed_messages(with_categories=true) %}
+
+    {% if mensajes %}
+
+        {% for categoria, mensaje in mensajes %}
+
+            <div class="mensaje-{{ categoria }}">
+                {{ mensaje }}
+            </div>
+
+        {% endfor %}
+
+    {% endif %}
+
+{% endwith %}
+
+<section class="panel">
+
+    {% if usuarios %}
+
+        <div class="tabla-contenedor">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Usuario</th>
+                        <th>Rol</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    {% for usuario in usuarios %}
+
+                        <tr>
+
+                            <td>
+                                {{ usuario["nombre"] }}
+                            </td>
+
+                            <td>
+                                {{ usuario["usuario"] }}
+                            </td>
+
+                            <td>
+                                {{ usuario["rol"]|capitalize }}
+                            </td>
+
+                            <td>
+
+                                {% if usuario["estado"] == "ACTIVO" %}
+
+                                    <span class="estado-activa">
+                                        Activo
+                                    </span>
+
+                                {% else %}
+
+                                    <span class="estado-anulada">
+                                        Inactivo
+                                    </span>
+
+                                {% endif %}
+
+                            </td>
+                            <td>
+
+                                <div class="acciones-usuario">
+
+                                    <a
+                                        href="{{ url_for(
+                                            'editar_usuario',
+                                            id=usuario['id']
+                                        ) }}"
+                                        class="boton"
+                                    >
+                                        Editar
+                                    </a>
+
+                                    <a
+                                        href="{{ url_for(
+                                            'cambiar_password_usuario',
+                                            id=usuario['id']
+                                        ) }}"
+                                        class="boton-secundario"
+                                    >
+                                        Contraseña
+                                    </a>
+
+                                    {% if usuario["id"] == session.get("usuario_id") %}
+
+                                        <span class="texto-secundario">
+                                            Usuario actual
+                                        </span>
+
+                                    {% elif usuario["estado"] == "ACTIVO" %}
+
+                                        <form
+                                            method="POST"
+                                            action="{{ url_for(
+                                                'inactivar_usuario',
+                                                id=usuario['id']
+                                            ) }}"
+                                            onsubmit="return confirm(
+                                                '¿Seguro que querés inactivar este usuario?'
+                                            );"
+                                        >
+
+                                            <input
+                                                type="hidden"
+                                                name="csrf_token"
+                                                value="{{ csrf_token() }}"
+                                            >
+
+                                            <button
+                                                type="submit"
+                                                class="boton-peligro"
+                                            >
+                                                Inactivar
+                                            </button>
+
+                                        </form>
+
+                                    {% else %}
+
+                                        <form
+                                            method="POST"
+                                            action="{{ url_for(
+                                                'activar_usuario',
+                                                id=usuario['id']
+                                            ) }}"
+                                        >
+
+                                            <input
+                                                type="hidden"
+                                                name="csrf_token"
+                                                value="{{ csrf_token() }}"
+                                            >
+
+                                            <button
+                                                type="submit"
+                                                class="boton-reactivar"
+                                            >
+                                                Activar
+                                            </button>
+
+                                        </form>
+
+                                    {% endif %}
+
+                                </div>
+
+                            </td>
+
+                        </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    {% else %}
+
+        <div class="sin-datos">
+            No hay usuarios cargados.
+        </div>
+
+    {% endif %}
+
+</section>
+
+{% endblock %}

@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}
+Historial de reserva
+{% endblock %}
+
+
+{% block contenido %}
+
+<header class="encabezado">
+
+    <div>
+
+        <h1>Historial de Reserva</h1>
+
+        <p class="subtitulo">
+            {{ reserva["nombre_reserva"] }}
+            ·
+            {{ reserva["empresa_nombre"] }}
+        </p>
+
+    </div>
+
+    <a
+        href="{{ url_for('reservas') }}"
+        class="boton-secundario"
+    >
+        ← Volver a Reservas
+    </a>
+
+</header>
+
+
+<section class="panel">
+
+    {% if movimientos %}
+
+        <div class="tabla-contenedor">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+                        <th>Fecha y hora</th>
+                        <th>Usuario</th>
+                        <th>Acción</th>
+                        <th>Detalle</th>
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    {% for movimiento in movimientos %}
+
+                        <tr>
+
+                            <td>
+                                {{ movimiento["fecha_hora"] }}
+                            </td>
+
+                            <td>
+                                {{ movimiento["usuario_nombre"] }}
+                            </td>
+
+                            <td>
+
+                                <span class="accion-historial">
+                                    {{ movimiento["accion"]|capitalize }}
+                                </span>
+
+                            </td>
+
+                            <td class="detalle-historial">
+                                {{ movimiento["detalle"] }}
+                            </td>
+
+                        </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    {% else %}
+
+        <div class="sin-datos">
+            Esta reserva todavía no tiene movimientos registrados.
+        </div>
+
+    {% endif %}
+
+</section>
+
+{% endblock %}

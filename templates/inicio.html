@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+
+{% block title %}
+Inicio
+{% endblock %}
+
+
+{% block contenido %}
+
+<header class="encabezado">
+
+    <div>
+
+        <h1>Inicio</h1>
+
+        <p class="subtitulo">
+            Resumen general del día
+        </p>
+
+    </div>
+
+</header>
+
+
+<!-- ============================= -->
+<!-- RESUMEN DEL DÍA -->
+<!-- ============================= -->
+
+<section class="estadisticas">
+
+
+    <!-- RESERVAS -->
+
+    <div class="tarjeta-estadistica">
+
+        <span class="estadistica-titulo">
+            Reservas de hoy
+        </span>
+
+        <span class="estadistica-numero">
+            {{ cantidad_reservas }}
+        </span>
+
+    </div>
+
+
+    <!-- PASAJEROS -->
+
+    <div class="tarjeta-estadistica">
+
+        <span class="estadistica-titulo">
+            Pasajeros reservados
+        </span>
+
+        <span class="estadistica-numero">
+            {{ total_pasajeros }}
+        </span>
+
+    </div>
+
+
+    <!-- PROTOCOLOS -->
+
+    <div class="tarjeta-estadistica">
+
+        <span class="estadistica-titulo">
+            Entradas de protocolo
+        </span>
+
+        <span class="estadistica-numero">
+            {{ total_protocolos }}
+        </span>
+
+    </div>
+
+
+    <!-- INMERSIVO -->
+
+    <div class="tarjeta-estadistica">
+
+        <span class="estadistica-titulo">
+            Ingresos inmersivo
+        </span>
+
+        <span class="estadistica-numero">
+            {{ total_inmersivo }}
+        </span>
+
+    </div>
+
+
+</section>
+
+
+<!-- ============================= -->
+<!-- ACCESOS RÁPIDOS -->
+<!-- ============================= -->
+
+<section class="panel">
+
+    <div class="panel-titulo">
+
+        <h2>
+            Accesos rápidos
+        </h2>
+
+    </div>
+
+
+    <div class="formulario-acciones">
+
+        <a
+            href="{{ url_for('nueva_reserva') }}"
+            class="boton"
+        >
+            + Nueva reserva
+        </a>
+
+        <a
+            href="{{ url_for('nuevo_protocolo') }}"
+            class="boton-secundario"
+        >
+            + Cargar protocolo
+        </a>
+
+        <a
+            href="{{ url_for('nuevo_inmersivo') }}"
+            class="boton-secundario"
+        >
+            + Cargar inmersivo
+        </a>
+
+    </div>
+
+</section>
+
+
+<!-- ============================= -->
+<!-- RESERVAS DEL DÍA -->
+<!-- ============================= -->
+
+<section class="panel">
+
+    <div class="panel-titulo">
+
+        <h2>
+            Reservas de hoy
+        </h2>
+
+        <a
+            href="{{ url_for('reservas') }}"
+            class="boton-secundario"
+        >
+            Ver todas
+        </a>
+
+    </div>
+
+
+    {% if reservas_hoy %}
+
+        <div class="tabla-contenedor">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>Hora</th>
+
+                        <th>Empresa</th>
+
+                        <th>Reserva</th>
+
+                        <th>Tipo</th>
+
+                        <th>Mayores</th>
+
+                        <th>Menores</th>
+
+                        <th>Nacionalidad</th>
+
+                        <th>Guía</th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody>
+
+                    {% for reserva in reservas_hoy %}
+
+                        <tr>
+
+                            <td>
+                                {{ reserva["hora"] }}
+                            </td>
+
+                            <td>
+                                {{ reserva["empresa_nombre"] }}
+                            </td>
+
+                            <td>
+                                {{ reserva["nombre_reserva"] }}
+                            </td>
+
+                            <td>
+                                {{ reserva["tipo_visita_nombre"] }}
+                            </td>
+
+                            <td>
+                                {{ reserva["mayores"] }}
+                            </td>
+
+                            <td>
+                                {{ reserva["menores"] }}
+                            </td>
+
+                            <td>
+                                {{ reserva["nacionalidad"] }}
+                            </td>
+
+                            <td>
+                                {{ reserva["guia"] or "—" }}
+                            </td>
+
+                        </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+
+    {% else %}
+
+        <div class="sin-datos">
+
+            <p>
+                No hay reservas activas para hoy.
+            </p>
+
+            <a
+                href="{{ url_for('nueva_reserva') }}"
+                class="boton"
+            >
+                + Cargar reserva
+            </a>
+
+        </div>
+
+    {% endif %}
+
+</section>
+
+{% endblock %}

@@ -1,0 +1,355 @@
+{% extends "base.html" %}
+
+{% block title %}
+Nuevo ingreso de inmersivo
+{% endblock %}
+
+
+{% block contenido %}
+
+<header class="encabezado">
+
+    <div>
+
+        <h1>Nuevo ingreso de inmersivo</h1>
+
+        <p class="subtitulo">
+            Registrar un ingreso al sector inmersivo
+        </p>
+
+    </div>
+
+    <a
+        href="{{ url_for('inmersivo') }}"
+        class="boton-secundario"
+    >
+        ← Volver
+    </a>
+
+</header>
+
+
+<section class="panel">
+
+    <form method="POST">
+
+        <input
+            type="hidden"
+            name="csrf_token"
+            value="{{ csrf_token() }}"
+        >
+
+
+        <div class="formulario-grid">
+
+
+            <!-- FECHA -->
+
+            <div class="campo">
+
+                <label for="fecha">
+                    Fecha
+                </label>
+
+                <input
+                    type="date"
+                    id="fecha"
+                    name="fecha"
+                    value="{{ fecha_predeterminada }}"
+                    required
+                >
+
+            </div>
+
+
+            <!-- HORA -->
+
+            <div class="campo">
+
+                <label for="hora">
+                    Hora
+                </label>
+
+                <input
+                    type="time"
+                    id="hora"
+                    name="hora"
+                    value="{{ hora_predeterminada }}"
+                    required
+                >
+
+            </div>
+
+
+            <!-- TIPO DE VISITA -->
+
+            <div class="campo">
+
+                <label for="tipo_visita_id">
+                    Tipo de visita
+                </label>
+
+                <select
+                    id="tipo_visita_id"
+                    name="tipo_visita_id"
+                    required
+                >
+
+                    <option value="">
+                        Seleccionar...
+                    </option>
+
+                    {% for tipo in tipos_visita %}
+
+                        <option
+                            value="{{ tipo['id'] }}"
+                        >
+                            {{ tipo["nombre"] }}
+                        </option>
+
+                    {% endfor %}
+
+                </select>
+
+            </div>
+
+
+            <!-- CANTIDAD -->
+
+            <div class="campo">
+
+                <label for="cantidad">
+                    Cantidad
+                </label>
+
+                <input
+                    type="number"
+                    id="cantidad"
+                    name="cantidad"
+                    min="1"
+                    step="1"
+                    required
+                >
+
+            </div>
+
+
+            <!-- MEDIO DE PAGO -->
+
+            <div class="campo">
+
+                <label for="medio_pago">
+                    Medio de pago
+                </label>
+
+                <select
+                    id="medio_pago"
+                    name="medio_pago"
+                    required
+                >
+
+                    <option
+                        value=""
+                        id="opcion-medio-vacia"
+                    >
+                        Seleccionar...
+                    </option>
+
+                    <option value="EFECTIVO">
+                        EFECTIVO
+                    </option>
+
+                    <option value="TARJETA">
+                        TARJETA
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <!-- OPCIONES -->
+
+            <div class="campo">
+
+                <label>
+                    Opciones
+                </label>
+
+                <div class="opciones-inmersivo">
+
+
+                    <!-- ONLINE -->
+
+                    <label class="opcion-inmersivo">
+
+                        <input
+                            type="checkbox"
+                            id="online"
+                            name="online"
+                            value="1"
+                        >
+
+                        <span>
+                            Online
+                        </span>
+
+                    </label>
+
+
+                    <!-- DIFERENCIA -->
+
+                    <label class="opcion-inmersivo">
+
+                        <input
+                            type="checkbox"
+                            id="diferencia"
+                            name="diferencia"
+                            value="1"
+                        >
+
+                        <span>
+                            Diferencia
+                        </span>
+
+                    </label>
+
+
+                </div>
+
+            </div>
+
+
+        </div>
+
+
+        <!-- ACCIONES -->
+
+        <div class="formulario-acciones">
+
+            <button
+                type="submit"
+                class="boton"
+            >
+                Guardar
+            </button>
+
+            <a
+                href="{{ url_for('inmersivo') }}"
+                class="boton-secundario"
+            >
+                Cancelar
+            </a>
+
+        </div>
+
+    </form>
+
+</section>
+
+
+<script>
+
+const online = document.getElementById(
+    "online"
+);
+
+const diferencia = document.getElementById(
+    "diferencia"
+);
+
+const medioPago = document.getElementById(
+    "medio_pago"
+);
+
+const opcionMedioVacia = document.getElementById(
+    "opcion-medio-vacia"
+);
+
+
+/* --------------------------------
+   ACTUALIZAR MEDIO DE PAGO
+-------------------------------- */
+
+function actualizarMedioPago() {
+
+    if (online.checked) {
+
+        /*
+         * Una entrada ONLINE ya viene paga,
+         * por lo tanto no corresponde
+         * seleccionar medio de pago.
+         */
+
+        medioPago.value = "";
+
+        medioPago.disabled = true;
+
+        medioPago.required = false;
+
+        opcionMedioVacia.textContent =
+            "No corresponde - Pago online";
+
+    } else {
+
+        medioPago.disabled = false;
+
+        medioPago.required = true;
+
+        opcionMedioVacia.textContent =
+            "Seleccionar...";
+
+    }
+
+}
+
+
+/* --------------------------------
+   ONLINE
+-------------------------------- */
+
+online.addEventListener(
+    "change",
+    function () {
+
+        if (this.checked) {
+
+            diferencia.checked = false;
+
+        }
+
+        actualizarMedioPago();
+
+    }
+);
+
+
+/* --------------------------------
+   DIFERENCIA
+-------------------------------- */
+
+diferencia.addEventListener(
+    "change",
+    function () {
+
+        if (this.checked) {
+
+            online.checked = false;
+
+        }
+
+        actualizarMedioPago();
+
+    }
+);
+
+
+/* --------------------------------
+   ESTADO INICIAL
+-------------------------------- */
+
+actualizarMedioPago();
+
+</script>
+
+{% endblock %}

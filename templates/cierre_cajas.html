@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+
+{% block title %}
+Cierre de cajas
+{% endblock %}
+
+{% block contenido %}
+
+<header class="encabezado">
+
+    <div>
+        <h1>Cierre de cajas</h1>
+
+        <p class="subtitulo">
+            Cálculo de recaudación y efectivo esperado
+        </p>
+    </div>
+
+    <a
+        href="{{ url_for('herramientas') }}"
+        class="boton-secundario"
+    >
+        ← Volver a herramientas
+    </a>
+
+</header>
+
+
+<section class="panel cierre-cajas">
+
+    <div class="tabla-contenedor">
+
+        <table class="tabla-cierre-cajas">
+
+            <thead>
+
+                <tr>
+                    <th>Caja</th>
+                    <th>POSNET inmersivo</th>
+                    <th>POSNET normal</th>
+                    <th>Cierre Z</th>
+                    <th>Efectivo esperado</th>
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+                <tr class="fila-caja">
+
+                    <td class="nombre-caja">
+                        Caja A
+                    </td>
+
+                    <td>
+                        <input
+                            type="number"
+                            class="importe-cierre posnet-inmersivo"
+                            min="0"
+                            step="0.01"
+                            value="0"
+                        >
+                    </td>
+
+                    <td>
+                        <input
+                            type="number"
+                            class="importe-cierre posnet-normal"
+                            min="0"
+                            step="0.01"
+                            value="0"
+                        >
+                    </td>
+
+                    <td>
+                        <input
+                            type="number"
+                            class="importe-cierre cierre-z"
+                            min="0"
+                            step="0.01"
+                            value="0"
+                        >
+                    </td>
+
+                    <td class="efectivo-caja">
+                        $0
+                    </td>
+
+                </tr>
+
+
+                <tr class="fila-caja">
+
+                    <td class="nombre-caja">
+                        Caja B
+                    </td>
+
+                    <td>
+                        <input
+                            type="number"
+                            class="importe-cierre posnet-inmersivo"
+                            min="0"
+                            step="0.01"
+                            value="0"
+                        >
+                    </td>
+
+                    <td>
+                        <input
+                            type="number"
+                            class="importe-cierre posnet-normal"
+                            min="0"
+                            step="0.01"
+                            value="0"
+                        >
+                    </td>
+
+                    <td>
+                        <input
+                            type="number"
+                            class="importe-cierre cierre-z"
+                            min="0"
+                            step="0.01"
+                            value="0"
+                        >
+                    </td>
+
+                    <td class="efectivo-caja">
+                        $0
+                    </td>
+
+                </tr>
+
+
+                <tr class="fila-caja">
+
+                    <td class="nombre-caja">
+                        Caja C
+                    </td>
+
+                    <td>
+                        <input
+                            type="number"
+                            class="importe-cierre posnet-inmersivo"
+                            min="0"
+                            step="0.01"
+                            value="0"
+                        >
+                    </td>
+
+                    <td>
+                        <input
+                            type="number"
+                            class="importe-cierre posnet-normal"
+                            min="0"
+                            step="0.01"
+                            value="0"
+                        >
+                    </td>
+
+                    <td>
+                        <input
+                            type="number"
+                            class="importe-cierre cierre-z"
+                            min="0"
+                            step="0.01"
+                            value="0"
+                        >
+                    </td>
+
+                    <td class="efectivo-caja">
+                        $0
+                    </td>
+
+                </tr>
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+
+    <div
+        id="advertencia-cierre"
+        class="advertencia-cierre"
+        hidden
+    >
+        Revisá los importes: en alguna caja los POSNET superan el cierre Z.
+    </div>
+
+
+    <section class="resumen-cierre">
+
+        <div class="tarjeta-cierre">
+
+            <span class="cierre-etiqueta">
+                POSNET inmersivo
+            </span>
+
+            <strong id="total-posnet-inmersivo">
+                $0
+            </strong>
+
+        </div>
+
+
+        <div class="tarjeta-cierre">
+
+            <span class="cierre-etiqueta">
+                POSNET normal
+            </span>
+
+            <strong id="total-posnet-normal">
+                $0
+            </strong>
+
+        </div>
+
+
+        <div class="tarjeta-cierre">
+
+            <span class="cierre-etiqueta">
+                Total cobrado con tarjeta
+            </span>
+
+            <strong id="total-tarjetas">
+                $0
+            </strong>
+
+        </div>
+
+
+        <div class="tarjeta-cierre efectivo">
+
+            <span class="cierre-etiqueta">
+                Efectivo total esperado
+            </span>
+
+            <strong id="efectivo-total">
+                $0
+            </strong>
+
+        </div>
+
+
+        <div class="tarjeta-cierre recaudacion">
+
+            <span class="cierre-etiqueta">
+                Recaudación total
+            </span>
+
+            <strong id="recaudacion-total">
+                $0
+            </strong>
+
+        </div>
+
+    </section>
+
+
+    <div class="acciones-cierre">
+
+        <button
+            type="button"
+            id="limpiar-cierre"
+            class="boton-peligro"
+        >
+            Limpiar cierre
+        </button>
+
+    </div>
+
+</section>
+
+
+<script src="{{ url_for(
+    'static',
+    filename='js/cierre_cajas.js'
+) }}"></script>
+
+{% endblock %}

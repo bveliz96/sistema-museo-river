@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+
+{% block title %}
+Calculadora
+{% endblock %}
+
+{% block contenido %}
+
+<header class="encabezado">
+
+    <div>
+        <h1>Calculadora</h1>
+
+        <p class="subtitulo">
+            Calculadora básica para operaciones rápidas
+        </p>
+    </div>
+
+    <a
+        href="{{ url_for('herramientas') }}"
+        class="boton-secundario"
+    >
+        ← Volver a herramientas
+    </a>
+
+</header>
+
+
+<section class="calculadora-contenedor">
+
+    <div class="calculadora">
+
+        <div class="calculadora-pantalla">
+
+            <div
+                id="operacion-calculadora"
+                class="calculadora-operacion"
+            ></div>
+
+            <div
+                id="resultado-calculadora"
+                class="calculadora-resultado"
+            >
+                0
+            </div>
+
+        </div>
+
+
+        <div class="calculadora-teclado">
+
+            <button
+                type="button"
+                class="calculadora-boton calculadora-boton-limpiar"
+                data-accion="limpiar"
+            >
+                C
+            </button>
+
+            <button
+                type="button"
+                class="calculadora-boton"
+                data-accion="borrar"
+            >
+                ⌫
+            </button>
+
+            <button
+                type="button"
+                class="calculadora-boton"
+                data-accion="porcentaje"
+            >
+                %
+            </button>
+
+            <button
+                type="button"
+                class="calculadora-boton calculadora-boton-operador"
+                data-operador="/"
+            >
+                ÷
+            </button>
+
+
+            <button
+                type="button"
+                class="calculadora-boton"
+                data-numero="7"
+            >
+                7
+            </button>
+
+            <button
+                type="button"
+                class="calculadora-boton"
+                data-numero="8"
+            >
+                8
+            </button>
+
+            <button
+                type="button"
+                class="calculadora-boton"
+                data-numero="9"
+            >
+                9
+            </button>
+
+            <button
+                type="button"
+                class="calculadora-boton calculadora-boton-operador"
+                data-operador="*"
+            >
+                ×
+            </button>
+
+
+            <button
+                type="button"
+                class="calculadora-boton"
+                data-numero="4"
+            >
+                4
+            </button>
+
+            <button
+                type="button"
+                class="calculadora-boton"
+                data-numero="5"
+            >
+                5
+            </button>
+
+            <button
+                type="button"
+                class="calculadora-boton"
+                data-numero="6"
+            >
+                6
+            </button>
+
+            <button
+                type="button"
+                class="calculadora-boton calculadora-boton-operador"
+                data-operador="-"
+            >
+                −
+            </button>
+
+
+            <button
+                type="button"
+                class="calculadora-boton"
+                data-numero="1"
+            >
+                1
+            </button>
+
+            <button
+                type="button"
+                class="calculadora-boton"
+                data-numero="2"
+            >
+                2
+            </button>
+
+            <button
+                type="button"
+                class="calculadora-boton"
+                data-numero="3"
+            >
+                3
+            </button>
+
+            <button
+                type="button"
+                class="calculadora-boton calculadora-boton-operador"
+                data-operador="+"
+            >
+                +
+            </button>
+
+
+            <button
+                type="button"
+                class="calculadora-boton calculadora-boton-cero"
+                data-numero="0"
+            >
+                0
+            </button>
+
+            <button
+                type="button"
+                class="calculadora-boton"
+                data-accion="decimal"
+            >
+                ,
+            </button>
+
+            <button
+                type="button"
+                class="calculadora-boton calculadora-boton-igual"
+                data-accion="resultado"
+            >
+                =
+            </button>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<script src="{{ url_for(
+    'static',
+    filename='js/calculadora.js'
+) }}"></script>
+
+{% endblock %}

@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}
+Herramientas
+{% endblock%}
+
+{% block contenido %}
+
+<header class="encabezado">
+    <div>
+        <h1>Herramientas</h1>
+        <p class="subtitulo">
+        Calculadora, contadora de billetes y cierre de cajas
+        </p>
+    </div>
+
+</header>
+
+<section class="herramientas-grid">
+
+    <article class="herramienta-tarjeta">
+
+        <div class="herramienta-icono">
+            🧮
+        </div>
+
+        <h2>Calculadora</h2>
+
+        <p>
+            Realizar cálculos rápidos sin salir del sistema.
+        </p>
+
+        <a
+            href="{{ url_for('calculadora') }}"
+            class="boton"
+        >
+            Abrir calculadora
+        </a>
+
+    </article>
+
+
+    <article class="herramienta-tarjeta">
+
+        <div class="herramienta-icono">
+            💵
+        </div>
+
+        <h2>Contador de billetes</h2>
+
+        <p>
+            Ingresar la cantidad de billetes y calcular el total.
+        </p>
+
+        <a
+            href="{{ url_for('contador_billetes') }}"
+            class="boton"
+        >
+            Abrir contador
+        </a>
+
+    </article>
+
+
+    <article class="herramienta-tarjeta">
+
+        <div class="herramienta-icono">
+            📋
+        </div>
+
+        <h2>Cierre de cajas</h2>
+
+        <p>
+            Registrar importes y calcular el cierre diario de las cajas.
+        </p>
+
+        <a
+            href="{{ url_for('cierre_cajas') }}"
+            class="boton"
+        >
+            Realizar cierre
+        </a>
+
+    </article>
+
+</section>
+
+
+{% endblock %}

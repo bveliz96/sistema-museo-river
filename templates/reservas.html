@@ -1,0 +1,552 @@
+{% extends "base.html" %}
+
+{% block title %}
+Reservas
+{% endblock %}
+
+
+{% block contenido %}
+
+<header class="encabezado">
+
+    <div>
+        <h1>Reservas</h1>
+    </div>
+
+    <div class="acciones-encabezado">
+
+        <a
+            href="{{ url_for(
+                'exportar_reservas',
+                empresa_id=filtros['empresa_id'],
+                fecha_desde=filtros['fecha_desde'],
+                fecha_hasta=filtros['fecha_hasta'],
+                tipo_visita=filtros['tipo_visita'],
+                nacionalidad=filtros['nacionalidad'],
+                estado=filtros['estado'],
+                busqueda=filtros['busqueda']
+            ) }}"
+            class="boton-secundario"
+        >
+            📊 Exportar Excel
+        </a>
+
+
+        <a
+            href="/reservas/nueva_reserva"
+            class="boton"
+        >
+            + Nueva Reserva
+        </a>
+
+    </div>
+
+</header>
+
+<section class="panel filtros">
+
+    <form method="GET">
+
+        <div class="filtros-grid">
+
+            <div>
+                <label for="empresa_id">
+                    Empresa
+                </label>
+
+                <select
+                    id="empresa_id"
+                    name="empresa_id"
+                >
+
+                    <option value="">
+                        Todas
+                    </option>
+
+                    {% for empresa in empresas %}
+
+                        <option
+                            value="{{ empresa['id'] }}"
+                            {% if filtros['empresa_id'] == empresa['id']|string %}
+                                selected
+                            {% endif %}
+                        >
+                            {{ empresa['nombre'] }}
+                        </option>
+
+                    {% endfor %}
+
+                </select>
+
+            </div>
+
+
+            <div>
+                <label for="fecha_desde">
+                    Desde
+                </label>
+
+                <input
+                    type="date"
+                    id="fecha_desde"
+                    name="fecha_desde"
+                    value="{{ filtros['fecha_desde'] }}"
+                >
+            </div>
+
+
+            <div>
+                <label for="fecha_hasta">
+                    Hasta
+                </label>
+
+                <input
+                    type="date"
+                    id="fecha_hasta"
+                    name="fecha_hasta"
+                    value="{{ filtros['fecha_hasta'] }}"
+                >
+            </div>
+
+            <div>
+
+                <label for="tipo_visita_id">
+                    Tipo de visita
+                </label>
+
+                <select
+                    id="tipo_visita_id"
+                    name="tipo_visita_id"
+                >
+
+                    <option value="">
+                        Todas
+                    </option>
+
+                    {% for tipo in tipos_visita %}
+
+                        <option
+                            value="{{ tipo['id'] }}"
+
+                            {% if
+                                filtros['tipo_visita_id']|string
+                                == tipo['id']|string
+                            %}
+                                selected
+                            {% endif %}
+                        >
+                            {{ tipo['nombre'] }}
+
+                            {% if tipo["estado"] != "ACTIVO" %}
+                                (Inactivo)
+                            {% endif %}
+
+                        </option>
+
+                    {% endfor %}
+
+                </select>
+
+            </div>
+
+
+            <div>
+                <label for="nacionalidad">
+                    Nacionalidad
+                </label>
+
+                <select
+                    id="nacionalidad"
+                    name="nacionalidad"
+                >
+
+                    <option value="">
+                        Todas
+                    </option>
+
+                    <option
+                        value="Nacional"
+                        {% if filtros['nacionalidad'] == 'Nacional' %}
+                            selected
+                        {% endif %}
+                    >
+                        Nacional
+                    </option>
+
+                    <option
+                        value="Extranjero"
+                        {% if filtros['nacionalidad'] == 'Extranjero' %}
+                            selected
+                        {% endif %}
+                    >
+                        Extranjero
+                    </option>
+
+                </select>
+
+            </div>
+
+            <div>
+                <label for="estado">
+                    Estado
+                </label>
+
+                <select
+                    id="estado"
+                    name="estado"
+                >
+
+                <option
+                    value="ACTIVA"
+                    {% if filtros['estado'] == 'ACTIVA' %}
+                    selected
+                    {% endif %}
+                >
+                    Activas
+                </option>
+
+                <option
+                    value="ANULADA"
+                    {% if filtros['estado'] == 'ANULADA' %}
+                    selected
+                    {% endif %}
+                >
+                    Anuladas
+                </option>
+
+                <option
+                    value=""
+                    {% if filtros['estado'] == '' %}
+                    selected
+                    {% endif %}
+                >
+                    Todas
+                </option>
+
+                </select>
+
+            </div>
+
+
+            <div>
+                <label for="busqueda">
+                    Buscar
+                </label>
+
+                <input
+                    type="text"
+                    id="busqueda"
+                    name="busqueda"
+                    placeholder="Nombre o voucher"
+                    value="{{ filtros['busqueda'] }}"
+                >
+            </div>
+
+        </div>
+
+
+        <div class="filtros-botones">
+
+            <button
+                type="submit"
+                formaction="{{ url_for('reservas') }}"
+                class="boton"
+            >
+                🔎 Buscar
+            </button>
+
+            <a
+                href="{{ url_for('reservas') }}"
+                class="boton-secundario"
+            >
+                Limpiar
+            </a>
+
+        </div>
+
+    </form>
+
+</section>
+
+<section class="panel">
+
+    {% if reservas %}
+
+        <table>
+
+            <thead>
+
+                <tr>
+                    <th>Día</th>
+                    <th>Hora de carga</th>
+                    <th>Hora de visita</th>
+                    <th>Empresa</th>
+                    <th>Tipo</th>
+                    <th>Reserva</th>
+                    <th>Mayores</th>
+                    <th>Menores</th>
+                    <th>Nacionalidad</th>
+                    <th>Voucher</th>
+                    <th>Guía</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+
+            </thead>
+
+
+            <tbody>
+
+                {% for reserva in reservas %}
+
+                    <tr>
+
+                        <td>
+                            {% if reserva["fecha"] %}
+                                {{ reserva["fecha"][8:10] }}/{{ reserva["fecha"][5:7] }}/{{ reserva["fecha"][0:4] }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if reserva["creado_en"] %}
+                                {{ reserva["creado_en"][8:10] }}/{{ reserva["creado_en"][5:7] }}/{{ reserva["creado_en"][0:4] }}
+                                {{ reserva["creado_en"][11:16] }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {{ reserva["hora"] or "-"}}
+                        </td>
+
+                        <td>
+                            {{ reserva["empresa_nombre"] }}
+                        </td>
+
+                        <td>
+                            {{ reserva["tipo_visita_nombre"] }}
+                        </td>
+
+                        <td>
+                            {{ reserva["nombre_reserva"] }}
+                        </td>
+
+                        <td>
+                            {{ reserva["mayores"] }}
+                        </td>
+
+                        <td>
+                            {{ reserva["menores"] }}
+                        </td>
+
+                        <td>
+                            {{ reserva["nacionalidad"] }}
+                        </td>
+
+                        <td>
+                            {{ reserva["voucher"] or "—" }}
+                        </td>
+
+                        <td>
+                            {{ reserva["guia"] or "—" }}
+                        </td>
+                        <td>
+
+                            {% if reserva["estado"] == "ACTIVA" %}
+
+                            <span class="estado-activa">Activa</span>
+
+                            {% else %}
+
+                            <span class="estado-anulada">Anulada</span>
+
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="acciones-reserva">
+
+                                <a
+                                    href="{{ url_for('editar_reserva', id=reserva['id']) }}"
+                                    class="boton"
+                                >
+                                    Editar
+                                </a>
+
+                                <a
+                                    href="{{ url_for('historial_reserva', id=reserva['id']) }}"
+                                    class="boton-secundario"
+                                >
+                                    Historial
+                                </a>
+
+                                {% if reserva["estado"] == "ACTIVA" %}
+
+                                    <form
+                                        method="POST"
+                                        action="{{ url_for('anular_reserva', id=reserva['id']) }}"
+                                        onsubmit="return confirm('¿Seguro que querés anular esta reserva?');"
+                                    >
+
+                                        <input
+                                            type="hidden"
+                                            name="csrf_token"
+                                            value="{{ csrf_token() }}"
+                                        >
+                                        <button
+                                            type="submit"
+                                            class="boton-peligro"
+                                        >
+                                            Anular
+                                        </button>
+                                    </form>
+
+                                {% else %}
+
+                                    <form
+                                        method="POST"
+                                        action="{{ url_for('reactivar_reserva', id=reserva['id']) }}"
+                                        onsubmit="return confirm('¿Querés reactivar esta reserva?');"
+                                    >
+
+                                        <input
+                                            type="hidden"
+                                            name="csrf_token"
+                                            value="{{ csrf_token() }}"
+                                        >
+                                        <button
+                                            type="submit"
+                                            class="boton-reactivar"
+                                        >
+                                            Reactivar
+                                        </button>
+                                    </form>
+
+                                {% endif %}
+
+                            </div>
+                        </td>
+
+                    </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+        <div class="resultado-info">
+
+            {% if total > 0 %}
+
+                Mostrando
+                {{ (pagina - 1) * 50 + 1 }}
+                -
+                {{ [pagina * 50, total]|min }}
+                de
+                {{ total }}
+                reservas
+
+                {% else %}
+
+                No se encontraron reservas.
+
+            {% endif %}
+
+        </div>
+
+        <div class="paginacion">
+
+            {% if pagina > 1 %}
+
+            <a
+                class="boton-secundario"
+                href="{{ url_for(
+                   'reservas',
+                    pagina=pagina - 1,
+                    empresa_id=filtros['empresa_id'],
+                    fecha_desde=filtros['fecha_desde'],
+                    fecha_hasta=filtros['fecha_hasta'],
+                    tipo_visita=filtros['tipo_visita_id'],
+                    nacionalidad=filtros['nacionalidad'],
+                    estado=filtros['estado'],
+                    busqueda=filtros['busqueda']
+                    ) }}"
+            >
+                ← Anterior
+            </a>
+
+            {% endif %}
+
+
+            <div class="paginas">
+
+                {% for numero in paginas %}
+
+                {% if numero == pagina %}
+
+                <span class="pagina-actual">
+                    {{ numero }}
+                </span>
+
+                {% else %}
+
+                <a
+                    class="pagina"
+                    href="{{ url_for(
+                            'reservas',
+                            pagina=numero,
+                            empresa_id=filtros['empresa_id'],
+                            fecha_desde=filtros['fecha_desde'],
+                            fecha_hasta=filtros['fecha_hasta'],
+                            tipo_visita_id=filtros['tipo_visita_id'],
+                            nacionalidad=filtros['nacionalidad'],
+                            estado=filtros['estado'],
+                            busqueda=filtros['busqueda']
+                           ) }}"
+                >
+                    {{ numero }}
+                </a>
+
+                {% endif %}
+
+                {% endfor %}
+
+            </div>
+
+
+            {% if pagina < total_paginas %}
+
+            <a
+                class="boton-secundario"
+                href="{{ url_for(
+                    'reservas',
+                    pagina=pagina + 1,
+                    empresa_id=filtros['empresa_id'],
+                    fecha_desde=filtros['fecha_desde'],
+                    fecha_hasta=filtros['fecha_hasta'],
+                    tipo_visita=filtros['tipo_visita'],
+                    nacionalidad=filtros['nacionalidad'],
+                    estado=filtros['estado'],
+                    busqueda=filtros['busqueda']
+                    ) }}"
+            >
+                Siguiente →
+            </a>
+
+            {% endif %}
+
+        </div>
+    {% else %}
+
+        <p>
+            No hay reservas cargadas todavía.
+        </p>
+
+    {% endif %}
+
+</section>
+
+{% endblock %}

@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}
+Nueva empresa
+{% endblock %}
+
+
+{% block contenido %}
+
+<header class="encabezado">
+
+    <div>
+
+        <h1>Nueva Empresa</h1>
+
+        <p class="subtitulo">
+            Registrar una nueva empresa
+        </p>
+
+    </div>
+
+    <a
+        href="{{ url_for('empresas') }}"
+        class="boton-secundario"
+    >
+        ← Volver
+    </a>
+
+</header>
+
+
+<section class="panel">
+
+    <form method="POST">
+
+        <input
+            type="hidden"
+            name="csrf_token"
+            value="{{ csrf_token() }}"
+        >
+
+
+        <div class="formulario-grid">
+
+            <div class="campo">
+
+                <label for="nombre">
+                    Nombre de la empresa
+                </label>
+
+                <input
+                    type="text"
+                    id="nombre"
+                    name="nombre"
+                    required
+                    autofocus
+                >
+
+            </div>
+
+        </div>
+
+
+        <div class="formulario-acciones">
+
+            <button
+                type="submit"
+                class="boton"
+            >
+                Guardar empresa
+            </button>
+
+            <a
+                href="{{ url_for('empresas') }}"
+                class="boton-secundario"
+            >
+                Cancelar
+            </a>
+
+        </div>
+
+    </form>
+
+</section>
+
+{% endblock %}

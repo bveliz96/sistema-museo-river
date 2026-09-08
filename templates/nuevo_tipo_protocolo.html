@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}
+Nuevo tipo de protocolo
+{% endblock %}
+
+
+{% block contenido %}
+
+<header class="encabezado">
+
+    <div>
+
+        <h1>Nuevo Tipo de Protocolo</h1>
+
+        <p class="subtitulo">
+            Registrar un nuevo tipo de protocolo
+        </p>
+
+    </div>
+
+    <a
+        href="{{ url_for('tipos_protocolo') }}"
+        class="boton-secundario"
+    >
+        ← Volver
+    </a>
+
+</header>
+
+
+<section class="panel">
+
+    <form method="POST">
+
+        <input
+            type="hidden"
+            name="csrf_token"
+            value="{{ csrf_token() }}"
+        >
+
+
+        <div class="formulario-grid">
+
+            <div class="campo">
+
+                <label for="nombre">
+                    Nombre
+                </label>
+
+                <input
+                    type="text"
+                    id="nombre"
+                    name="nombre"
+                    required
+                    autofocus
+                >
+
+            </div>
+
+        </div>
+
+
+        <div class="formulario-acciones">
+
+            <button
+                type="submit"
+                class="boton"
+            >
+                Guardar
+            </button>
+
+            <a
+                href="{{ url_for('tipos_protocolo') }}"
+                class="boton-secundario"
+            >
+                Cancelar
+            </a>
+
+        </div>
+
+    </form>
+
+</section>
+
+{% endblock %}

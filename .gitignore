@@ -1,0 +1,44 @@
+# Entorno virtual
+venv/
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Bases de datos
+*.db
+*.sqlite
+*.sqlite3
+
+# Backups y logs
+backups/
+logs/
+*.log
+
+# Datos sensibles / configuración local
+.env
+.env.*
+secret_key.txt
+panel_servidor.json
+
+# PyInstaller
+build/
+dist/
+*.spec
+
+# Instaladores compilados
+instalador/
+
+# Editores
+.vscode/
+.idea/
+
+# Windows
+Thumbs.db
+desktop.ini
+# Ejecutables e instaladores comprimidos
+*.exe
+*.zip

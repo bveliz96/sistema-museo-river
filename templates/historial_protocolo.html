@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}
+Historial de protocolo
+{% endblock %}
+
+
+{% block contenido %}
+
+<header class="encabezado">
+
+    <div>
+
+        <h1>
+            Historial de Protocolo
+        </h1>
+
+        <p>
+            {{ protocolo["tipo_protocolo_nombre"] }}
+            ·
+            {{ protocolo["tipo_visita_nombre"] }}
+        </p>
+
+    </div>
+
+    <a
+        href="{{ url_for('protocolos') }}"
+        class="boton-secundario"
+    >
+        Volver
+    </a>
+
+</header>
+
+
+<section class="panel">
+
+    <p>
+        <strong>Fecha:</strong>
+
+        {% if protocolo["fecha"] %}
+
+            {{ protocolo["fecha"][8:10] }}/{{ protocolo["fecha"][5:7] }}/{{ protocolo["fecha"][0:4] }}
+
+        {% endif %}
+    </p>
+
+    <p>
+        <strong>Cantidad:</strong>
+        {{ protocolo["cantidad"] }}
+    </p>
+
+    <p>
+        <strong>Descripción:</strong>
+        {{ protocolo["descripcion"] or "—" }}
+    </p>
+
+    <p>
+        <strong>Estado:</strong>
+
+        {% if protocolo["estado"] == "ACTIVO" %}
+
+            <span class="estado-activa">
+                ACTIVO
+            </span>
+
+        {% else %}
+
+            <span class="estado-anulada">
+                ANULADO
+            </span>
+
+        {% endif %}
+
+    </p>
+
+</section>
+
+
+<section class="panel">
+
+    <table>
+
+        <thead>
+
+            <tr>
+
+                <th>
+                    Fecha y hora
+                </th>
+
+                <th>
+                    Usuario
+                </th>
+
+                <th>
+                    Acción
+                </th>
+
+                <th>
+                    Detalle
+                </th>
+
+            </tr>
+
+        </thead>
+
+
+        <tbody>
+
+            {% for movimiento in historial %}
+
+            <tr>
+
+                <td>
+
+                    {% if movimiento["fecha_hora"] %}
+
+                        {{ movimiento["fecha_hora"][8:10] }}/{{ movimiento["fecha_hora"][5:7] }}/{{ movimiento["fecha_hora"][0:4] }}
+
+                        {{ movimiento["fecha_hora"][11:16] }}
+
+                    {% endif %}
+
+                </td>
+
+
+                <td>
+                    {{ movimiento["usuario_nombre"] }}
+                </td>
+
+
+                <td>
+                    <strong>
+                        {{ movimiento["accion"] }}
+                    </strong>
+                </td>
+
+
+                <td>
+                    {{ movimiento["detalle"] }}
+                </td>
+
+            </tr>
+
+
+            {% else %}
+
+            <tr>
+
+                <td colspan="4">
+                    Este protocolo no tiene movimientos registrados.
+                </td>
+
+            </tr>
+
+            {% endfor %}
+
+        </tbody>
+
+    </table>
+
+</section>
+
+{% endblock %}

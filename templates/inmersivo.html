@@ -1,0 +1,631 @@
+{% extends "base.html" %}
+
+{% block title %}
+Inmersivo
+{% endblock %}
+
+
+{% block contenido %}
+
+<header class="encabezado">
+
+    <div>
+
+        <h1>Inmersivo</h1>
+
+        <p class="subtitulo">
+            Registro de ingresos al sector inmersivo
+        </p>
+
+    </div>
+
+    <div class="encabezado-acciones">
+
+        <a
+            href="{{ url_for(
+                'exportar_inmersivo',
+                fecha_desde=filtros['fecha_desde'],
+                fecha_hasta=filtros['fecha_hasta'],
+                tipo_visita_id=filtros['tipo_visita_id'],
+                medio_pago=filtros['medio_pago'],
+                marca=filtros['marca'],
+                estado=filtros['estado']
+            ) }}"
+            class="boton-secundario"
+        >
+            📥 Exportar Excel
+        </a>
+
+        <a
+            href="{{ url_for('nuevo_inmersivo') }}"
+            class="boton"
+        >
+            + Cargar Ingreso
+        </a>
+
+    </div>
+
+</header>
+
+
+<!-- ============================= -->
+<!-- FILTROS -->
+<!-- ============================= -->
+
+<section class="panel filtros">
+
+    <form method="GET">
+
+        <div class="filtros-grid">
+
+
+            <div>
+
+                <label for="fecha_desde">
+                    Desde
+                </label>
+
+                <input
+                    type="date"
+                    id="fecha_desde"
+                    name="fecha_desde"
+                    value="{{ filtros['fecha_desde'] }}"
+                >
+
+            </div>
+
+
+            <div>
+
+                <label for="fecha_hasta">
+                    Hasta
+                </label>
+
+                <input
+                    type="date"
+                    id="fecha_hasta"
+                    name="fecha_hasta"
+                    value="{{ filtros['fecha_hasta'] }}"
+                >
+
+            </div>
+
+
+            <div>
+
+                <label for="tipo_visita_id">
+                    Tipo de visita
+                </label>
+
+                <select
+                    id="tipo_visita_id"
+                    name="tipo_visita_id"
+                >
+
+                    <option value="">
+                        Todas
+                    </option>
+
+                    {% for tipo in tipos_visita %}
+
+                        <option
+                            value="{{ tipo['id'] }}"
+
+                            {% if
+                                filtros['tipo_visita_id']|string
+                                == tipo['id']|string
+                            %}
+                                selected
+                            {% endif %}
+                        >
+                            {{ tipo["nombre"] }}
+
+                            {% if tipo["estado"] != "ACTIVO" %}
+                                (Inactivo)
+                            {% endif %}
+
+                        </option>
+
+                    {% endfor %}
+
+                </select>
+
+            </div>
+
+
+            <div>
+
+                <label for="medio_pago">
+                    Medio de pago
+                </label>
+
+                <select
+                    id="medio_pago"
+                    name="medio_pago"
+                >
+
+                    <option value="">
+                        Todos
+                    </option>
+
+                    <option
+                        value="EFECTIVO"
+                        {% if filtros["medio_pago"] == "EFECTIVO" %}
+                            selected
+                        {% endif %}
+                    >
+                        EFECTIVO
+                    </option>
+
+                    <option
+                        value="TARJETA"
+                        {% if filtros["medio_pago"] == "TARJETA" %}
+                            selected
+                        {% endif %}
+                    >
+                        TARJETA
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <div>
+
+                <label for="marca">
+                    Marca
+                </label>
+
+                <select
+                    id="marca"
+                    name="marca"
+                >
+
+                    <option value="">
+                        Todas
+                    </option>
+
+                    <option
+                        value="ONLINE"
+                        {% if filtros["marca"] == "ONLINE" %}
+                            selected
+                        {% endif %}
+                    >
+                        ONLINE
+                    </option>
+
+                    <option
+                        value="DIFERENCIA"
+                        {% if filtros["marca"] == "DIFERENCIA" %}
+                            selected
+                        {% endif %}
+                    >
+                        DIFERENCIA
+                    </option>
+
+                    <option
+                        value="SIN_MARCA"
+                        {% if filtros["marca"] == "SIN_MARCA" %}
+                            selected
+                        {% endif %}
+                    >
+                        SIN MARCA
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <div>
+
+                <label for="estado">
+                    Estado
+                </label>
+
+                <select
+                    id="estado"
+                    name="estado"
+                >
+
+                    <option
+                        value="ACTIVO"
+                        {% if filtros["estado"] == "ACTIVO" %}
+                            selected
+                        {% endif %}
+                    >
+                        Activos
+                    </option>
+
+                    <option
+                        value="ANULADO"
+                        {% if filtros["estado"] == "ANULADO" %}
+                            selected
+                        {% endif %}
+                    >
+                        Anulados
+                    </option>
+
+                    <option
+                        value=""
+                        {% if filtros["estado"] == "" %}
+                            selected
+                        {% endif %}
+                    >
+                        Todos
+                    </option>
+
+                </select>
+
+            </div>
+
+
+        </div>
+
+
+        <div class="filtros-botones">
+
+            <button
+                type="submit"
+                class="boton"
+            >
+                🔎 Buscar
+            </button>
+
+            <a
+                href="{{ url_for('inmersivo') }}"
+                class="boton-secundario"
+            >
+                Limpiar
+            </a>
+
+        </div>
+
+    </form>
+
+</section>
+
+
+<!-- ============================= -->
+<!-- TOTALES -->
+<!-- ============================= -->
+
+<div class="resultado-info">
+
+    <strong>
+        {{ totales["total_personas"] }}
+    </strong>
+    personas
+
+    &nbsp;•&nbsp;
+
+    Efectivo:
+    <strong>
+        {{ totales["total_efectivo"] }}
+    </strong>
+
+    &nbsp;•&nbsp;
+
+    Tarjeta:
+    <strong>
+        {{ totales["total_tarjeta"] }}
+    </strong>
+
+    &nbsp;•&nbsp;
+
+    Online:
+    <strong>
+        {{ totales["total_online"] }}
+    </strong>
+
+    &nbsp;•&nbsp;
+
+    Diferencia:
+    <strong>
+        {{ totales["total_diferencia"] }}
+    </strong>
+
+</div>
+
+
+<!-- ============================= -->
+<!-- TABLA -->
+<!-- ============================= -->
+
+<section class="panel">
+
+    <table>
+
+        <thead>
+
+            <tr>
+
+                <th>Fecha</th>
+                <th>Hora</th>
+                <th>Tipo de visita</th>
+                <th>Cantidad</th>
+                <th>Medio de pago</th>
+                <th>Marca</th>
+                <th>Cargado por</th>
+                <th>Cargado el</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+
+            </tr>
+
+        </thead>
+
+
+        <tbody>
+
+            {% for registro in registros %}
+
+            <tr>
+
+                <td>
+
+                    {{ registro["fecha"][8:10] }}/{{ registro["fecha"][5:7] }}/{{ registro["fecha"][0:4] }}
+
+                </td>
+
+
+                <td>
+                    {{ registro["hora"] }}
+                </td>
+
+
+                <td>
+                    {{ registro["tipo_visita_nombre"] }}
+                </td>
+
+
+                <td>
+
+                    <strong>
+                        {{ registro["cantidad"] }}
+                    </strong>
+
+                </td>
+
+
+                <td>
+                    {{ registro["medio_pago"] or "-" }}
+                </td>
+
+
+                <td>
+                    {{ registro["marca"] or "—" }}
+                </td>
+
+
+                <td>
+                    {{ registro["usuario_nombre"] }}
+                </td>
+
+
+                <td>
+
+                    {{ registro["creado_en"][8:10] }}/{{ registro["creado_en"][5:7] }}/{{ registro["creado_en"][0:4] }}
+
+                    {{ registro["creado_en"][11:16] }}
+
+                </td>
+
+
+                <td>
+
+                    {% if registro["estado"] == "ACTIVO" %}
+
+                        <span class="estado-activa">
+                            ACTIVO
+                        </span>
+
+                    {% else %}
+
+                        <span class="estado-anulada">
+                            ANULADO
+                        </span>
+
+                    {% endif %}
+
+                </td>
+
+                <td>
+
+                    <div class="acciones-reserva">
+
+                        <a
+                            href="{{ url_for(
+                                'editar_inmersivo',
+                                id=registro['id']
+                            ) }}"
+                            class="boton-secundario"
+                        >
+                            Editar
+                        </a>
+
+
+                        <a
+                            href="{{ url_for(
+                                'historial_inmersivo',
+                                id=registro['id']
+                            ) }}"
+                            class="boton-secundario"
+                        >
+                            Historial
+                        </a>
+
+
+                        {% if registro["estado"] == "ACTIVO" %}
+
+                            <form
+                                method="POST"
+                                action="{{ url_for(
+                                    'anular_inmersivo',
+                                    id=registro['id']
+                                ) }}"
+                            >
+
+                                <input
+                                    type="hidden"
+                                    name="csrf_token"
+                                    value="{{ csrf_token() }}"
+                                >
+
+                                <button
+                                    type="submit"
+                                    class="boton-peligro"
+                                    onclick="return confirm(
+                                        '¿Seguro que querés anular este ingreso?'
+                                    )"
+                                >
+                                    Anular
+                                </button>
+
+                            </form>
+
+                        {% else %}
+
+                            <form
+                                method="POST"
+                                action="{{ url_for(
+                                    'reactivar_inmersivo',
+                                    id=registro['id']
+                                ) }}"
+                            >
+
+                                <input
+                                    type="hidden"
+                                    name="csrf_token"
+                                    value="{{ csrf_token() }}"
+                                >
+
+                                <button
+                                    type="submit"
+                                    class="boton-reactivar"
+                                >
+                                    Reactivar
+                                </button>
+
+                            </form>
+
+                        {% endif %}
+
+                    </div>
+
+                </td>
+
+            </tr>
+
+
+            {% else %}
+
+            <tr>
+
+                <td colspan="10">
+                    No hay ingresos de inmersivo cargados.
+                </td>
+
+            </tr>
+
+            {% endfor %}
+
+        </tbody>
+
+    </table>
+
+</section>
+
+
+<!-- ============================= -->
+<!-- PAGINACIÓN -->
+<!-- ============================= -->
+
+{% if total_paginas > 1 %}
+
+<div class="paginacion">
+
+
+    {% if pagina > 1 %}
+
+        <a
+            class="pagina"
+            href="{{ url_for(
+                'inmersivo',
+                pagina=pagina - 1,
+                fecha_desde=filtros['fecha_desde'],
+                fecha_hasta=filtros['fecha_hasta'],
+                tipo_visita_id=filtros['tipo_visita_id'],
+                medio_pago=filtros['medio_pago'],
+                marca=filtros['marca'],
+                estado=filtros['estado']
+            ) }}"
+        >
+            ‹
+        </a>
+
+    {% endif %}
+
+
+    <div class="paginas">
+
+        {% for numero in paginas %}
+
+            {% if numero == pagina %}
+
+                <span class="pagina pagina-actual">
+                    {{ numero }}
+                </span>
+
+            {% else %}
+
+                <a
+                    class="pagina"
+                    href="{{ url_for(
+                        'inmersivo',
+                        pagina=numero,
+                        fecha_desde=filtros['fecha_desde'],
+                        fecha_hasta=filtros['fecha_hasta'],
+                        tipo_visita_id=filtros['tipo_visita_id'],
+                        medio_pago=filtros['medio_pago'],
+                        marca=filtros['marca'],
+                        estado=filtros['estado']
+                    ) }}"
+                >
+                    {{ numero }}
+                </a>
+
+            {% endif %}
+
+        {% endfor %}
+
+    </div>
+
+
+    {% if pagina < total_paginas %}
+
+        <a
+            class="pagina"
+            href="{{ url_for(
+                'inmersivo',
+                pagina=pagina + 1,
+                fecha_desde=filtros['fecha_desde'],
+                fecha_hasta=filtros['fecha_hasta'],
+                tipo_visita_id=filtros['tipo_visita_id'],
+                medio_pago=filtros['medio_pago'],
+                marca=filtros['marca'],
+                estado=filtros['estado']
+            ) }}"
+        >
+            ›
+        </a>
+
+    {% endif %}
+
+
+</div>
+
+{% endif %}
+
+{% endblock %}

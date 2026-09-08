@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block title %}
+Tipos de visita
+{% endblock %}
+
+
+{% block contenido %}
+
+<header class="encabezado">
+
+    <div>
+        <h1>Tipos de Visita</h1>
+
+        <p>
+            Administrá los tipos de visita disponibles.
+        </p>
+    </div>
+
+    <a
+        href="{{ url_for('nuevo_tipo_visita') }}"
+        class="boton"
+    >
+        + Nuevo tipo
+    </a>
+
+</header>
+
+
+<section class="panel">
+
+    <table>
+
+        <thead>
+
+            <tr>
+                <th>Nombre</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+            </tr>
+
+        </thead>
+
+        <tbody>
+
+            {% for tipo in tipos %}
+
+            <tr>
+
+                <td>
+                    {{ tipo["nombre"] }}
+                </td>
+
+                <td>
+                    {{ tipo["estado"] }}
+                </td>
+
+                <td>
+
+                    <a
+                        href="{{ url_for(
+                            'editar_tipo_visita',
+                            id=tipo['id']
+                        ) }}"
+                        class="boton-secundario"
+                    >
+                        Editar
+                    </a>
+
+
+                    {% if tipo["estado"] == "ACTIVO" %}
+
+                    <form
+                        method="POST"
+                        action="{{ url_for(
+                            'inactivar_tipo_visita',
+                            id=tipo['id']
+                        ) }}"
+                        style="display:inline;"
+                    >
+
+                        <input
+                            type="hidden"
+                            name="csrf_token"
+                            value="{{ csrf_token() }}"
+                        >
+
+                        <button
+                            type="submit"
+                            class="boton-peligro"
+                        >
+                            Inactivar
+                        </button>
+
+                    </form>
+
+                    {% else %}
+
+                    <form
+                        method="POST"
+                        action="{{ url_for(
+                            'activar_tipo_visita',
+                            id=tipo['id']
+                        ) }}"
+                        style="display:inline;"
+                    >
+
+                        <input
+                            type="hidden"
+                            name="csrf_token"
+                            value="{{ csrf_token() }}"
+                        >
+
+                        <button
+                            type="submit"
+                            class="boton-reactivar"
+                        >
+                            Activar
+                        </button>
+
+                    </form>
+
+                    {% endif %}
+
+                </td>
+
+            </tr>
+
+            {% else %}
+
+            <tr>
+
+                <td colspan="3">
+                    No hay tipos de visita cargados.
+                </td>
+
+            </tr>
+
+            {% endfor %}
+
+        </tbody>
+
+    </table>
+
+</section>
+
+
+<br>
+
+<a
+    href="{{ url_for('administracion') }}"
+    class="boton-secundario"
+>
+    Volver a Administración
+</a>
+
+{% endblock %}

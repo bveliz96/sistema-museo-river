@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}
+Editar empresa
+{% endblock %}
+
+{% block contenido %}
+
+<header class="encabezado">
+
+    <div>
+
+        <h1>Editar Empresa</h1>
+
+        <p class="subtitulo">
+            Modificar los datos de la empresa
+        </p>
+
+    </div>
+
+    <a
+        href="{{ url_for('empresas') }}"
+        class="boton-secundario"
+    >
+        ← Volver
+    </a>
+
+</header>
+
+
+<section class="panel">
+
+    {% if error %}
+
+        <div class="mensaje-error">
+            {{ error }}
+        </div>
+
+    {% endif %}
+
+
+    <form
+        method="POST"
+        action="{{ url_for(
+            'editar_empresa',
+            id=empresa['id']
+        ) }}"
+    >
+
+        <input
+            type="hidden"
+            name="csrf_token"
+            value="{{ csrf_token() }}"
+        >
+
+
+        <div class="formulario-grid">
+
+            <div class="campo">
+
+                <label for="nombre">
+                    Nombre de la empresa
+                </label>
+
+                <input
+                    type="text"
+                    id="nombre"
+                    name="nombre"
+                    value="{{ nombre_formulario }}"
+                    required
+                    autofocus
+                >
+
+            </div>
+
+        </div>
+
+
+        <div class="formulario-acciones">
+
+            <a
+                href="{{ url_for('empresas') }}"
+                class="boton-secundario"
+            >
+                Cancelar
+            </a>
+
+            <button
+                type="submit"
+                class="boton"
+            >
+                Guardar cambios
+            </button>
+
+        </div>
+
+    </form>
+
+</section>
+
+{% endblock %}

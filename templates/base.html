@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>
+        {% block title %}
+        Sistema de Carga de Pasajeros
+        {% endblock %}
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/estilos.css') }}"
+    >
+</head>
+
+<body>
+
+<div class="contenedor">
+
+    <aside class="sidebar">
+
+        <div class="sidebar-logo">
+
+            <img
+                src="{{ url_for('static', filename='img/museo_logo.jpg') }}"
+                alt="River Plate"
+                class="sidebar-logo-img"
+            >
+
+            <div class="sidebar-logo-texto">
+
+                <strong>
+                    Museo River
+                </strong>
+
+                <span>
+                    Sistema
+                </span>
+
+            </div>
+
+        </div>
+
+        <ul class="menu">
+
+            <li>
+                <a href="{{ url_for('inicio') }}">
+                    Inicio
+                </a>
+            </li>
+
+            <li>
+                <a href="{{ url_for('reservas') }}">
+                    Reservas
+                </a>
+            </li>
+
+            <li>
+                <a href="{{ url_for('protocolos') }}">
+                    Protocolos
+                </a>
+            </li>
+
+            <li>
+                <a href="{{ url_for('inmersivo') }}">
+                    Inmersivo
+                </a>
+            </li>
+
+            <li>
+                <a href="{{ url_for('herramientas') }}">
+                    Herramientas
+                </a>
+            </li>
+
+
+            {% if session.get("usuario_rol") == "ADMIN" %}
+
+            <li>
+                <a href="{{ url_for('administracion') }}">
+                    ⚙ Administración
+                </a>
+            </li>
+
+            {% endif %}
+
+        </ul>
+
+
+        <div class="sidebar-usuario">
+
+            <div class="usuario-datos">
+
+                <strong>
+                    {{ session.get(
+                        "usuario_nombre",
+                        "Usuario"
+                    ) }}
+                </strong>
+
+                <span>
+                    {{ session.get(
+                        "usuario_rol",
+                        ""
+                    )|capitalize }}
+                </span>
+
+            </div>
+
+            <a
+                href="{{ url_for('logout') }}"
+                class="boton-cerrar-sesion"
+            >
+                Cerrar sesión
+            </a>
+
+        </div>
+
+    </aside>
+
+
+    <main class="contenido">
+
+        {% block contenido %}
+        {% endblock %}
+
+    </main>
+
+</div>
+
+</body>
+
+</html>
