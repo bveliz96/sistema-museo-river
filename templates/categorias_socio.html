@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+
+{% block title %}
+Categorías de socio
+{% endblock %}
+
+
+{% block contenido %}
+
+<header class="encabezado">
+
+    <div>
+
+        <h1>Categorías de socio</h1>
+
+        <p class="subtitulo">
+            Administrar las categorías disponibles
+            para los nuevos asociados
+        </p>
+
+    </div>
+
+
+    <div class="formulario-acciones">
+
+        <a
+            href="{{ url_for('administracion') }}"
+            class="boton-secundario"
+        >
+            ← Volver
+        </a>
+
+        <a
+            href="{{ url_for('nueva_categoria_socio') }}"
+            class="boton"
+        >
+            + Nueva categoría
+        </a>
+
+    </div>
+
+</header>
+
+
+<section class="panel">
+
+    {% if categorias %}
+
+        <div class="tabla-contenedor">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>
+                            Nombre
+                        </th>
+
+                        <th>
+                            Estado
+                        </th>
+
+                        <th>
+                            Acciones
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody>
+
+                    {% for categoria in categorias %}
+
+                        <tr>
+
+                            <td>
+                                {{ categoria["nombre"] }}
+                            </td>
+
+
+                            <td>
+
+                                {% if categoria["estado"] == "ACTIVO" %}
+
+                                    <span class="estado-activa">
+                                        ACTIVO
+                                    </span>
+
+                                {% else %}
+
+                                    <span class="estado-anulada">
+                                        INACTIVO
+                                    </span>
+
+                                {% endif %}
+
+                            </td>
+
+
+                            <td>
+
+                                <div class="acciones-reserva">
+
+                                    <a
+                                        href="{{ url_for(
+                                            'editar_categoria_socio',
+                                            id=categoria['id']
+                                        ) }}"
+                                        class="boton-secundario"
+                                    >
+                                        Editar
+                                    </a>
+
+
+                                    {% if categoria["estado"] == "ACTIVO" %}
+
+                                        <form
+                                            method="POST"
+                                            action="{{ url_for(
+                                                'inactivar_categoria_socio',
+                                                id=categoria['id']
+                                            ) }}"
+                                        >
+
+                                            <input
+                                                type="hidden"
+                                                name="csrf_token"
+                                                value="{{ csrf_token() }}"
+                                            >
+
+                                            <button
+                                                type="submit"
+                                                class="boton-peligro"
+                                            >
+                                                Inactivar
+                                            </button>
+
+                                        </form>
+
+                                    {% else %}
+
+                                        <form
+                                            method="POST"
+                                            action="{{ url_for(
+                                                'activar_categoria_socio',
+                                                id=categoria['id']
+                                            ) }}"
+                                        >
+
+                                            <input
+                                                type="hidden"
+                                                name="csrf_token"
+                                                value="{{ csrf_token() }}"
+                                            >
+
+                                            <button
+                                                type="submit"
+                                                class="boton-reactivar"
+                                            >
+                                                Activar
+                                            </button>
+
+                                        </form>
+
+                                    {% endif %}
+
+                                </div>
+
+                            </td>
+
+                        </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    {% else %}
+
+        <div class="sin-datos">
+
+            <p>
+                Todavía no hay categorías de socio cargadas.
+            </p>
+
+            <a
+                href="{{ url_for('nueva_categoria_socio') }}"
+                class="boton"
+            >
+                + Crear primera categoría
+            </a>
+
+        </div>
+
+    {% endif %}
+
+</section>
+
+{% endblock %}

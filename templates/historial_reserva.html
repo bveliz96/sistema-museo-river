@@ -11,27 +11,304 @@ Historial de reserva
 
     <div>
 
-        <h1>Historial de Reserva</h1>
+        <h1>
+            Historial de Reserva
+        </h1>
 
         <p class="subtitulo">
-            {{ reserva["nombre_reserva"] }}
-            ·
-            {{ reserva["empresa_nombre"] }}
+            Información actual y cambios realizados
         </p>
 
     </div>
+
 
     <a
         href="{{ url_for('reservas') }}"
         class="boton-secundario"
     >
-        ← Volver a Reservas
+        ← Volver
     </a>
 
 </header>
 
 
+<!-- ============================= -->
+<!-- DATOS DE LA RESERVA -->
+<!-- ============================= -->
+
 <section class="panel">
+
+    <div class="panel-titulo">
+
+        <h2>
+            {{ reserva["nombre_reserva"] }}
+        </h2>
+
+    </div>
+
+
+    <div class="formulario-grid">
+
+
+        <!-- FECHA -->
+
+        <div class="campo">
+
+            <label>
+                Día
+            </label>
+
+            <div>
+                {{ reserva["fecha"][8:10] }}/{{ reserva["fecha"][5:7] }}/{{ reserva["fecha"][0:4] }}
+            </div>
+
+        </div>
+
+
+        <!-- HORA -->
+
+        <div class="campo">
+
+            <label>
+                Hora de visita
+            </label>
+
+            <div>
+                {{ reserva["hora"] or "—" }}
+            </div>
+
+        </div>
+
+
+        <!-- EMPRESA -->
+
+        <div class="campo">
+
+            <label>
+                Empresa
+            </label>
+
+            <div>
+                {{ reserva["empresa_nombre"] }}
+            </div>
+
+        </div>
+
+
+        <!-- TIPO DE VISITA -->
+
+        <div class="campo">
+
+            <label>
+                Tipo de visita
+            </label>
+
+            <div>
+                {{ reserva["tipo_visita_nombre"] }}
+            </div>
+
+        </div>
+
+
+        <!-- RESERVA -->
+
+        <div class="campo campo-completo">
+
+            <label>
+                Reserva a nombre de
+            </label>
+
+            <div>
+                {{ reserva["nombre_reserva"] }}
+            </div>
+
+        </div>
+
+
+        <!-- MAYORES -->
+
+        <div class="campo">
+
+            <label>
+                Mayores
+            </label>
+
+            <div>
+                {{ reserva["mayores"] }}
+            </div>
+
+        </div>
+
+
+        <!-- MENORES -->
+
+        <div class="campo">
+
+            <label>
+                Menores
+            </label>
+
+            <div>
+                {{ reserva["menores"] }}
+            </div>
+
+        </div>
+
+
+        <!-- TOTAL -->
+
+        <div class="campo">
+
+            <label>
+                Total de pasajeros
+            </label>
+
+            <div>
+
+                <strong>
+                    {{ reserva["mayores"] + reserva["menores"] }}
+                </strong>
+
+            </div>
+
+        </div>
+
+
+        <!-- NACIONALIDAD -->
+
+        <div class="campo">
+
+            <label>
+                Nacionalidad
+            </label>
+
+            <div>
+                {{ reserva["nacionalidad"] }}
+            </div>
+
+        </div>
+
+
+        <!-- VOUCHER -->
+
+        <div class="campo">
+
+            <label>
+                Voucher
+            </label>
+
+            <div>
+                {{ reserva["voucher"] or "—" }}
+            </div>
+
+        </div>
+
+
+        <!-- GUÍA -->
+
+        <div class="campo">
+
+            <label>
+                Guía
+            </label>
+
+            <div>
+                {{ reserva["guia"] or "—" }}
+            </div>
+
+        </div>
+
+
+        <!-- ESTADO -->
+
+        <div class="campo">
+
+            <label>
+                Estado
+            </label>
+
+            <div>
+
+                {% if reserva["estado"] == "ACTIVA" %}
+
+                    <span class="estado-activa">
+                        ACTIVA
+                    </span>
+
+                {% else %}
+
+                    <span class="estado-anulada">
+                        ANULADA
+                    </span>
+
+                {% endif %}
+
+            </div>
+
+        </div>
+
+
+        <!-- HORA DE CARGA -->
+
+        <div class="campo">
+
+            <label>
+                Cargado el
+            </label>
+
+            <div>
+
+                {% if reserva["creado_en"] %}
+
+                    {{ reserva["creado_en"][8:10] }}/{{ reserva["creado_en"][5:7] }}/{{ reserva["creado_en"][0:4] }}
+
+                    {{ reserva["creado_en"][11:16] }}
+
+                {% else %}
+
+                    —
+
+                {% endif %}
+
+            </div>
+
+        </div>
+
+
+        <!-- NOTAS -->
+
+        <div class="campo campo-completo">
+
+            <label>
+                Notas
+            </label>
+
+            <div>
+                {{ reserva["notas"] or "—" }}
+            </div>
+
+        </div>
+
+
+    </div>
+
+</section>
+
+
+<!-- ============================= -->
+<!-- HISTORIAL -->
+<!-- ============================= -->
+
+<section class="panel">
+
+    <div class="panel-titulo">
+
+        <h2>
+            Movimientos
+        </h2>
+
+    </div>
+
 
     {% if movimientos %}
 
@@ -42,13 +319,27 @@ Historial de reserva
                 <thead>
 
                     <tr>
-                        <th>Fecha y hora</th>
-                        <th>Usuario</th>
-                        <th>Acción</th>
-                        <th>Detalle</th>
+
+                        <th>
+                            Fecha y hora
+                        </th>
+
+                        <th>
+                            Usuario
+                        </th>
+
+                        <th>
+                            Acción
+                        </th>
+
+                        <th>
+                            Detalle
+                        </th>
+
                     </tr>
 
                 </thead>
+
 
                 <tbody>
 
@@ -56,21 +347,65 @@ Historial de reserva
 
                         <tr>
 
+                            <!-- FECHA -->
+
                             <td>
-                                {{ movimiento["fecha_hora"] }}
+
+                                {% if movimiento["fecha_hora"] %}
+
+                                    {{ movimiento["fecha_hora"][8:10] }}/{{ movimiento["fecha_hora"][5:7] }}/{{ movimiento["fecha_hora"][0:4] }}
+
+                                    {{ movimiento["fecha_hora"][11:16] }}
+
+                                {% endif %}
+
                             </td>
+
+
+                            <!-- USUARIO -->
 
                             <td>
                                 {{ movimiento["usuario_nombre"] }}
                             </td>
 
+
+                            <!-- ACCIÓN -->
+
                             <td>
 
-                                <span class="accion-historial">
-                                    {{ movimiento["accion"]|capitalize }}
-                                </span>
+                                {% if movimiento["accion"] == "CREADA" %}
+
+                                    <span class="estado-activa">
+                                        CREADA
+                                    </span>
+
+
+                                {% elif movimiento["accion"] == "ANULADA" %}
+
+                                    <span class="estado-anulada">
+                                        ANULADA
+                                    </span>
+
+
+                                {% elif movimiento["accion"] == "REACTIVADA" %}
+
+                                    <span class="estado-activa">
+                                        REACTIVADA
+                                    </span>
+
+
+                                {% else %}
+
+                                    <span class="accion-historial">
+                                        {{ movimiento["accion"] }}
+                                    </span>
+
+                                {% endif %}
 
                             </td>
+
+
+                            <!-- DETALLE -->
 
                             <td class="detalle-historial">
                                 {{ movimiento["detalle"] }}
@@ -86,10 +421,15 @@ Historial de reserva
 
         </div>
 
+
     {% else %}
 
         <div class="sin-datos">
-            Esta reserva todavía no tiene movimientos registrados.
+
+            <p>
+                Esta reserva todavía no tiene movimientos registrados.
+            </p>
+
         </div>
 
     {% endif %}

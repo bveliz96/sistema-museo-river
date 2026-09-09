@@ -1,0 +1,296 @@
+{% extends "base.html" %}
+
+{% block title %}
+Historial del asociado
+{% endblock %}
+
+
+{% block contenido %}
+
+<header class="encabezado">
+
+    <div>
+
+        <h1>
+            Historial del asociado
+        </h1>
+
+        <p class="subtitulo">
+            Cambios realizados sobre el registro
+        </p>
+
+    </div>
+
+
+    <a
+        href="{{ url_for('nuevos_asociados') }}"
+        class="boton-secundario"
+    >
+        ← Volver
+    </a>
+
+</header>
+
+
+<!-- ============================= -->
+<!-- DATOS DEL ASOCIADO -->
+<!-- ============================= -->
+
+<section class="panel">
+
+    <div class="panel-titulo">
+
+        <h2>
+            {{ asociado["nombre"] }}
+        </h2>
+
+    </div>
+
+
+    <div class="formulario-grid">
+
+
+        <div class="campo">
+
+            <label>
+                DNI
+            </label>
+
+            <div>
+                {{ asociado["dni"] }}
+            </div>
+
+        </div>
+
+
+        <div class="campo">
+
+            <label>
+                Categoría
+            </label>
+
+            <div>
+                {{ asociado["categoria_nombre"] }}
+            </div>
+
+        </div>
+
+
+        <div class="campo">
+
+            <label>
+                Fecha
+            </label>
+
+            <div>
+                {{ asociado["fecha"] }}
+            </div>
+
+        </div>
+
+
+        <div class="campo">
+
+            <label>
+                Hora
+            </label>
+
+            <div>
+                {{ asociado["hora"] }}
+            </div>
+
+        </div>
+
+
+        <div class="campo">
+
+            <label>
+                Asociado por
+            </label>
+
+            <div>
+                {{ asociado["empleado_nombre"] }}
+            </div>
+
+        </div>
+
+
+        <div class="campo">
+
+            <label>
+                Cargado por
+            </label>
+
+            <div>
+                {{ asociado["usuario_carga_nombre"] }}
+            </div>
+
+        </div>
+
+
+        <div class="campo">
+
+            <label>
+                Estado
+            </label>
+
+            <div>
+
+                {% if asociado["estado"] == "ACTIVO" %}
+
+                    <span class="estado-activa">
+                        ACTIVO
+                    </span>
+
+                {% else %}
+
+                    <span class="estado-anulada">
+                        ANULADO
+                    </span>
+
+                {% endif %}
+
+            </div>
+
+        </div>
+
+
+        <div class="campo">
+
+            <label>
+                Cargado el
+            </label>
+
+            <div>
+                {{ asociado["creado_en"] }}
+            </div>
+
+        </div>
+
+
+    </div>
+
+</section>
+
+
+<!-- ============================= -->
+<!-- HISTORIAL -->
+<!-- ============================= -->
+
+<section class="panel">
+
+    <div class="panel-titulo">
+
+        <h2>
+            Movimientos
+        </h2>
+
+    </div>
+
+
+    {% if historial %}
+
+        <div class="tabla-contenedor">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>
+                            Fecha y hora
+                        </th>
+
+                        <th>
+                            Usuario
+                        </th>
+
+                        <th>
+                            Acción
+                        </th>
+
+                        <th>
+                            Detalle
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody>
+
+                    {% for movimiento in historial %}
+
+                        <tr>
+
+                            <td>
+                                {{ movimiento["fecha_hora"] }}
+                            </td>
+
+
+                            <td>
+                                {{ movimiento["usuario_nombre"] }}
+                            </td>
+
+
+                            <td>
+
+                                {% if movimiento["accion"] == "CREADO" %}
+
+                                    <span class="estado-activa">
+                                        CREADO
+                                    </span>
+
+                                {% elif movimiento["accion"] == "ANULADO" %}
+
+                                    <span class="estado-anulada">
+                                        ANULADO
+                                    </span>
+
+                                {% elif movimiento["accion"] == "REACTIVADO" %}
+
+                                    <span class="estado-activa">
+                                        REACTIVADO
+                                    </span>
+
+                                {% else %}
+
+                                    {{ movimiento["accion"] }}
+
+                                {% endif %}
+
+                            </td>
+
+
+                            <td>
+                                {{ movimiento["detalle"] }}
+                            </td>
+
+                        </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+
+    {% else %}
+
+        <div class="sin-datos">
+
+            <p>
+                Este asociado todavía no tiene movimientos registrados.
+            </p>
+
+        </div>
+
+    {% endif %}
+
+</section>
+
+{% endblock %}

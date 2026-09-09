@@ -82,6 +82,93 @@ def inicializar_base_datos():
             )
         """)
 
+        # --------------------------------
+        # CATEGORÍAS DE SOCIO
+        # --------------------------------
+
+        conexion.execute("""
+            CREATE TABLE IF NOT EXISTS categorias_socio (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nombre TEXT NOT NULL UNIQUE,
+                estado TEXT NOT NULL DEFAULT 'ACTIVO'
+            )
+        """)
+
+
+        # --------------------------------
+        # NUEVOS ASOCIADOS
+        # --------------------------------
+
+        conexion.execute("""
+            CREATE TABLE IF NOT EXISTS nuevos_asociados (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+                fecha TEXT NOT NULL,
+                hora TEXT NOT NULL,
+
+                nombre TEXT NOT NULL,
+                dni TEXT NOT NULL,
+
+                categoria_socio_id INTEGER NOT NULL,
+
+                empleado_usuario_id INTEGER,
+                empleado_otro TEXT,
+
+                creado_en TEXT NOT NULL,
+                usuario_id INTEGER NOT NULL,
+
+                estado TEXT NOT NULL DEFAULT 'ACTIVO',
+
+                FOREIGN KEY (categoria_socio_id)
+                    REFERENCES categorias_socio(id),
+
+                FOREIGN KEY (empleado_usuario_id)
+                    REFERENCES usuarios(id),
+
+                FOREIGN KEY (usuario_id)
+                    REFERENCES usuarios(id),
+
+                CHECK (
+                    (
+                        empleado_usuario_id IS NOT NULL
+                        AND empleado_otro IS NULL
+                    )
+                    OR
+                    (
+                        empleado_usuario_id IS NULL
+                        AND empleado_otro IS NOT NULL
+                    )
+                )
+            )
+        """)
+
+
+        # --------------------------------
+        # HISTORIAL DE NUEVOS ASOCIADOS
+        # --------------------------------
+
+        conexion.execute("""
+            CREATE TABLE IF NOT EXISTS historial_nuevos_asociados (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+                asociado_id INTEGER NOT NULL,
+                usuario_id INTEGER NOT NULL,
+
+                accion TEXT NOT NULL,
+                detalle TEXT NOT NULL,
+
+                datos_anteriores TEXT,
+                datos_nuevos TEXT,
+
+                fecha_hora TEXT NOT NULL,
+
+                FOREIGN KEY (asociado_id)
+                    REFERENCES nuevos_asociados(id),
+
+                FOREIGN KEY (usuario_id)
+                    REFERENCES usuarios(id)
+            )
+        """)
 
         # --------------------------------
         # RESERVAS
@@ -208,7 +295,34 @@ def inicializar_base_datos():
             )
         """)
 
+        # --------------------------------
+        # ÍNDICES NUEVOS ASOCIADOS
+        # --------------------------------
 
+        conexion.execute("""
+            CREATE INDEX IF NOT EXISTS
+            idx_nuevos_asociados_fecha
+            ON nuevos_asociados(fecha)
+        """)
+
+        conexion.execute("""
+            CREATE INDEX IF NOT EXISTS
+            idx_nuevos_asociados_categoria
+            ON nuevos_asociados(categoria_socio_id)
+        """)
+
+        conexion.execute("""
+            CREATE INDEX IF NOT EXISTS
+            idx_nuevos_asociados_estado
+            ON nuevos_asociados(estado)
+        """)
+
+        conexion.execute("""
+            CREATE INDEX IF NOT EXISTS
+            idx_historial_nuevos_asociados
+            ON historial_nuevos_asociados(asociado_id)
+        """)
+        
         # --------------------------------
         # ÍNDICES RESERVAS
         # --------------------------------

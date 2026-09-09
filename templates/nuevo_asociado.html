@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+
+{% block title %}
+Nuevo asociado
+{% endblock %}
+
+
+{% block contenido %}
+
+<header class="encabezado">
+
+    <div>
+
+        <h1>
+            Nuevo asociado
+        </h1>
+
+        <p class="subtitulo">
+            Registrar una nueva asociación
+        </p>
+
+    </div>
+
+
+    <a
+        href="{{ url_for('nuevos_asociados') }}"
+        class="boton-secundario"
+    >
+        ← Volver
+    </a>
+
+</header>
+
+
+<section class="panel">
+
+    <form
+        method="POST"
+        id="form-asociado"
+    >
+
+        <input
+            type="hidden"
+            name="csrf_token"
+            value="{{ csrf_token() }}"
+        >
+
+
+        <div class="formulario-grid">
+
+
+            <!-- FECHA -->
+
+            <div class="campo">
+
+                <label for="fecha">
+                    Fecha *
+                </label>
+
+                <input
+                    type="date"
+                    id="fecha"
+                    name="fecha"
+                    value="{{ fecha_predeterminada }}"
+                    required
+                >
+
+            </div>
+
+
+            <!-- HORA -->
+
+            <div class="campo">
+
+                <label for="hora">
+                    Hora *
+                </label>
+
+                <input
+                    type="time"
+                    id="hora"
+                    name="hora"
+                    value="{{ hora_predeterminada }}"
+                    required
+                >
+
+            </div>
+
+
+            <!-- NOMBRE -->
+
+            <div class="campo campo-completo">
+
+                <label for="nombre">
+                    Nombre *
+                </label>
+
+                <input
+                    type="text"
+                    id="nombre"
+                    name="nombre"
+                    placeholder="Ej. Juan Pérez"
+                    required
+                >
+
+            </div>
+
+
+            <!-- DNI -->
+
+            <div class="campo">
+
+                <label for="dni">
+                    DNI *
+                </label>
+
+                <input
+                    type="text"
+                    id="dni"
+                    name="dni"
+                    placeholder="Ej. 40123456"
+                    required
+                >
+
+            </div>
+
+
+            <!-- CATEGORÍA -->
+
+            <div class="campo">
+
+                <label for="categoria_socio_id">
+                    Categoría de socio *
+                </label>
+
+                <select
+                    id="categoria_socio_id"
+                    name="categoria_socio_id"
+                    required
+                >
+
+                    <option value="">
+                        Seleccionar...
+                    </option>
+
+                    {% for categoria in categorias %}
+
+                        <option
+                            value="{{ categoria['id'] }}"
+                        >
+                            {{ categoria["nombre"] }}
+                        </option>
+
+                    {% endfor %}
+
+                </select>
+
+            </div>
+
+
+            <!-- EMPLEADO -->
+
+            <div class="campo campo-completo">
+
+                <label for="empleado">
+                    Empleado que lo asoció *
+                </label>
+
+                <select
+                    id="empleado"
+                    name="empleado"
+                    required
+                >
+
+                    <option value="">
+                        Seleccionar...
+                    </option>
+
+                    {% for empleado in empleados %}
+
+                        <option
+                            value="{{ empleado['id'] }}"
+                        >
+                            {{ empleado["nombre"] }}
+                        </option>
+
+                    {% endfor %}
+
+
+                    <option value="OTRO">
+                        OTRO EMPLEADO...
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <!-- OTRO EMPLEADO -->
+
+            <div
+                class="campo campo-completo"
+                id="campo-empleado-otro"
+                style="display: none;"
+            >
+
+                <label for="empleado_otro">
+                    Nombre del empleado *
+                </label>
+
+                <input
+                    type="text"
+                    id="empleado_otro"
+                    name="empleado_otro"
+                    placeholder="Ingresar nombre del empleado"
+                >
+
+            </div>
+
+
+        </div>
+
+
+        <!-- ACCIONES -->
+
+        <div class="formulario-acciones">
+
+            <button
+                type="submit"
+                class="boton"
+            >
+                Guardar asociado
+            </button>
+
+            <a
+                href="{{ url_for('nuevos_asociados') }}"
+                class="boton-secundario"
+            >
+                Cancelar
+            </a>
+
+        </div>
+
+    </form>
+
+</section>
+
+
+<script>
+
+const empleado =
+    document.getElementById(
+        "empleado"
+    );
+
+const campoEmpleadoOtro =
+    document.getElementById(
+        "campo-empleado-otro"
+    );
+
+const empleadoOtro =
+    document.getElementById(
+        "empleado_otro"
+    );
+
+
+function actualizarEmpleadoOtro() {
+
+    if (empleado.value === "OTRO") {
+
+        campoEmpleadoOtro.style.display =
+            "block";
+
+        empleadoOtro.required =
+            true;
+
+    } else {
+
+        campoEmpleadoOtro.style.display =
+            "none";
+
+        empleadoOtro.required =
+            false;
+
+        empleadoOtro.value =
+            "";
+
+    }
+
+}
+
+
+empleado.addEventListener(
+    "change",
+    actualizarEmpleadoOtro
+);
+
+
+actualizarEmpleadoOtro();
+
+</script>
+
+{% endblock %}

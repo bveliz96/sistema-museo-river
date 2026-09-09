@@ -1,5 +1,5 @@
 #define MyAppName "Sistema Museo River"
-#define MyAppVersion "1.1.1"
+#define MyAppVersion "1.2.0"
 #define MyAppPublisher "Sistema Museo River"
 #define MyAppExeName "SistemaMuseoRiver.exe"
 
@@ -30,7 +30,7 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 CloseApplications=yes
 RestartApplications=no
 
-VersionInfoVersion=1.1.1.0
+VersionInfoVersion=1.2.0.0
 VersionInfoDescription=Instalador del Sistema Museo River
 VersionInfoProductName={#MyAppName}
 VersionInfoProductVersion={#MyAppVersion}

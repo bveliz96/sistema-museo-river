@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}
+Editar categoría de socio
+{% endblock %}
+
+
+{% block contenido %}
+
+<header class="encabezado">
+
+    <div>
+
+        <h1>
+            Editar categoría de socio
+        </h1>
+
+        <p class="subtitulo">
+            Modificar el nombre de la categoría
+        </p>
+
+    </div>
+
+
+    <a
+        href="{{ url_for('categorias_socio') }}"
+        class="boton-secundario"
+    >
+        ← Volver
+    </a>
+
+</header>
+
+
+<section class="panel">
+
+    <form method="POST">
+
+        <input
+            type="hidden"
+            name="csrf_token"
+            value="{{ csrf_token() }}"
+        >
+
+
+        <div class="formulario-grid">
+
+            <div class="campo campo-completo">
+
+                <label for="nombre">
+                    Nombre de la categoría *
+                </label>
+
+                <input
+                    type="text"
+                    id="nombre"
+                    name="nombre"
+                    value="{{ categoria['nombre'] }}"
+                    required
+                    autofocus
+                >
+
+            </div>
+
+        </div>
+
+
+        <div class="formulario-acciones">
+
+            <button
+                type="submit"
+                class="boton"
+            >
+                Guardar cambios
+            </button>
+
+            <a
+                href="{{ url_for('categorias_socio') }}"
+                class="boton-secundario"
+            >
+                Cancelar
+            </a>
+
+        </div>
+
+    </form>
+
+</section>
+
+{% endblock %}

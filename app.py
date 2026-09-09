@@ -4626,10 +4626,14 @@ def historial_reserva(id):
     reserva = conexion.execute("""
         SELECT
             reservas.*,
-            empresas.nombre AS empresa_nombre
+            empresas.nombre AS empresa_nombre,
+            tipos_visita.nombre AS tipo_visita_nombre
+
         FROM reservas
         INNER JOIN empresas
             ON reservas.empresa_id = empresas.id
+        INNER JOIN tipos_visita
+            ON reservas.tipo_visita_id = tipos_visita.id
         WHERE reservas.id = ?
     """, (id,)).fetchone()
 
@@ -6653,6 +6657,2075 @@ def exportar_protocolos():
         mimetype=(
             "application/vnd.openxmlformats-"
             "officedocument.spreadsheetml.sheet"
+        )
+    )
+
+@app.route("/administracion/categorias-socio")
+@login_required
+@admin_required
+def categorias_socio():
+
+    conexion = conectar()
+
+    categorias = conexion.execute("""
+        SELECT
+            id,
+            nombre,
+            estado
+        FROM categorias_socio
+        ORDER BY nombre
+    """).fetchall()
+
+    conexion.close()
+
+    return render_template(
+        "categorias_socio.html",
+        categorias=categorias
+    )
+
+
+@app.route(
+    "/administracion/categorias-socio/nueva",
+    methods=["GET", "POST"]
+)
+@login_required
+@admin_required
+def nueva_categoria_socio():
+
+    if request.method == "POST":
+
+        nombre = texto_mayusculas(
+            request.form.get("nombre", "")
+        )
+
+        if not nombre:
+
+            flash(
+                "Debés ingresar el nombre de la categoría.",
+                "error"
+            )
+
+            return redirect(
+                url_for("nueva_categoria_socio")
+            )
+
+
+        conexion = conectar()
+
+        existente = conexion.execute("""
+            SELECT id
+            FROM categorias_socio
+            WHERE UPPER(nombre) = UPPER(?)
+        """, (
+            nombre,
+        )).fetchone()
+
+
+        if existente is not None:
+
+            conexion.close()
+
+            flash(
+                "Ya existe una categoría con ese nombre.",
+                "error"
+            )
+
+            return redirect(
+                url_for("nueva_categoria_socio")
+            )
+
+
+        conexion.execute("""
+            INSERT INTO categorias_socio (
+                nombre,
+                estado
+            )
+            VALUES (?, 'ACTIVO')
+        """, (
+            nombre,
+        ))
+
+        conexion.commit()
+        conexion.close()
+
+
+        flash(
+            "Categoría creada correctamente.",
+            "exito"
+        )
+
+        return redirect(
+            url_for("categorias_socio")
+        )
+
+
+    return render_template(
+        "nueva_categoria_socio.html"
+    )
+
+
+@app.route(
+    "/administracion/categorias-socio/<int:id>/editar",
+    methods=["GET", "POST"]
+)
+@login_required
+@admin_required
+def editar_categoria_socio(id):
+
+    conexion = conectar()
+
+    categoria = conexion.execute("""
+        SELECT *
+        FROM categorias_socio
+        WHERE id = ?
+    """, (
+        id,
+    )).fetchone()
+
+
+    if categoria is None:
+
+        conexion.close()
+
+        return (
+            "Categoría no encontrada",
+            404
+        )
+
+
+    if request.method == "POST":
+
+        nombre = texto_mayusculas(
+            request.form.get("nombre", "")
+        )
+
+
+        if not nombre:
+
+            conexion.close()
+
+            flash(
+                "Debés ingresar el nombre de la categoría.",
+                "error"
+            )
+
+            return redirect(
+                url_for(
+                    "editar_categoria_socio",
+                    id=id
+                )
+            )
+
+
+        existente = conexion.execute("""
+            SELECT id
+            FROM categorias_socio
+            WHERE UPPER(nombre) = UPPER(?)
+            AND id != ?
+        """, (
+            nombre,
+            id
+        )).fetchone()
+
+
+        if existente is not None:
+
+            conexion.close()
+
+            flash(
+                "Ya existe otra categoría con ese nombre.",
+                "error"
+            )
+
+            return redirect(
+                url_for(
+                    "editar_categoria_socio",
+                    id=id
+                )
+            )
+
+
+        conexion.execute("""
+            UPDATE categorias_socio
+            SET nombre = ?
+            WHERE id = ?
+        """, (
+            nombre,
+            id
+        ))
+
+        conexion.commit()
+        conexion.close()
+
+
+        flash(
+            "Categoría actualizada correctamente.",
+            "exito"
+        )
+
+        return redirect(
+            url_for("categorias_socio")
+        )
+
+
+    conexion.close()
+
+    return render_template(
+        "editar_categoria_socio.html",
+        categoria=categoria
+    )
+
+
+@app.post(
+    "/administracion/categorias-socio/<int:id>/inactivar"
+)
+@login_required
+@admin_required
+def inactivar_categoria_socio(id):
+
+    conexion = conectar()
+
+    conexion.execute("""
+        UPDATE categorias_socio
+        SET estado = 'INACTIVO'
+        WHERE id = ?
+    """, (
+        id,
+    ))
+
+    conexion.commit()
+    conexion.close()
+
+    flash(
+        "Categoría inactivada correctamente.",
+        "exito"
+    )
+
+    return redirect(
+        url_for("categorias_socio")
+    )
+
+
+@app.post(
+    "/administracion/categorias-socio/<int:id>/activar"
+)
+@login_required
+@admin_required
+def activar_categoria_socio(id):
+
+    conexion = conectar()
+
+    conexion.execute("""
+        UPDATE categorias_socio
+        SET estado = 'ACTIVO'
+        WHERE id = ?
+    """, (
+        id,
+    ))
+
+    conexion.commit()
+    conexion.close()
+
+    flash(
+        "Categoría activada correctamente.",
+        "exito"
+    )
+
+    return redirect(
+        url_for("categorias_socio")
+    )
+
+def registrar_historial_nuevo_asociado(
+    conexion,
+    asociado_id,
+    accion,
+    detalle,
+    datos_anteriores=None,
+    datos_nuevos=None
+):
+
+    fecha_hora = datetime.now(
+        ZoneInfo(
+            "America/Argentina/Buenos_Aires"
+        )
+    ).strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
+
+    anteriores_json = (
+        json.dumps(
+            datos_anteriores,
+            ensure_ascii=False
+        )
+        if datos_anteriores is not None
+        else None
+    )
+
+    nuevos_json = (
+        json.dumps(
+            datos_nuevos,
+            ensure_ascii=False
+        )
+        if datos_nuevos is not None
+        else None
+    )
+
+    conexion.execute("""
+        INSERT INTO historial_nuevos_asociados (
+            asociado_id,
+            usuario_id,
+            accion,
+            detalle,
+            datos_anteriores,
+            datos_nuevos,
+            fecha_hora
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (
+        asociado_id,
+        session["usuario_id"],
+        accion,
+        detalle,
+        anteriores_json,
+        nuevos_json,
+        fecha_hora
+    ))
+
+@app.route("/nuevos-asociados")
+@login_required
+def nuevos_asociados():
+
+    conexion = conectar()
+
+
+    fecha_desde = request.args.get(
+        "fecha_desde",
+        ""
+    )
+
+    fecha_hasta = request.args.get(
+        "fecha_hasta",
+        ""
+    )
+
+    categoria_socio_id = request.args.get(
+        "categoria_socio_id",
+        ""
+    )
+
+    estado = request.args.get(
+        "estado",
+        "ACTIVO"
+    )
+
+    busqueda = request.args.get(
+        "busqueda",
+        ""
+    ).strip()
+
+
+    condiciones = []
+    parametros = []
+
+
+    if fecha_desde:
+
+        condiciones.append(
+            "nuevos_asociados.fecha >= ?"
+        )
+
+        parametros.append(
+            fecha_desde
+        )
+
+
+    if fecha_hasta:
+
+        condiciones.append(
+            "nuevos_asociados.fecha <= ?"
+        )
+
+        parametros.append(
+            fecha_hasta
+        )
+
+
+    if categoria_socio_id:
+
+        condiciones.append(
+            "nuevos_asociados.categoria_socio_id = ?"
+        )
+
+        parametros.append(
+            categoria_socio_id
+        )
+
+
+    if estado:
+
+        condiciones.append(
+            "nuevos_asociados.estado = ?"
+        )
+
+        parametros.append(
+            estado
+        )
+
+
+    if busqueda:
+
+        condiciones.append("""
+            (
+                nuevos_asociados.nombre LIKE ?
+                OR nuevos_asociados.dni LIKE ?
+                OR categorias_socio.nombre LIKE ?
+                OR usuarios_empleado.nombre LIKE ?
+                OR nuevos_asociados.empleado_otro LIKE ?
+            )
+        """)
+
+        busqueda_sql = (
+            f"%{busqueda}%"
+        )
+
+        parametros.extend([
+            busqueda_sql,
+            busqueda_sql,
+            busqueda_sql,
+            busqueda_sql,
+            busqueda_sql
+        ])
+
+
+    where_sql = ""
+
+    if condiciones:
+
+        where_sql = (
+            "WHERE "
+            + " AND ".join(
+                condiciones
+            )
+        )
+
+
+    asociados = conexion.execute(f"""
+        SELECT
+            nuevos_asociados.*,
+
+            categorias_socio.nombre
+                AS categoria_nombre,
+
+            COALESCE(
+                usuarios_empleado.nombre,
+                nuevos_asociados.empleado_otro
+            )
+                AS empleado_nombre,
+
+            usuarios_carga.nombre
+                AS usuario_carga_nombre
+
+        FROM nuevos_asociados
+
+        INNER JOIN categorias_socio
+            ON nuevos_asociados.categoria_socio_id
+            = categorias_socio.id
+
+        LEFT JOIN usuarios AS usuarios_empleado
+            ON nuevos_asociados.empleado_usuario_id
+            = usuarios_empleado.id
+
+        INNER JOIN usuarios AS usuarios_carga
+            ON nuevos_asociados.usuario_id
+            = usuarios_carga.id
+
+        {where_sql}
+
+        ORDER BY
+            nuevos_asociados.fecha DESC,
+            nuevos_asociados.hora DESC,
+            nuevos_asociados.id DESC
+    """, parametros).fetchall()
+
+
+    categorias = conexion.execute("""
+        SELECT
+            id,
+            nombre,
+            estado
+        FROM categorias_socio
+        ORDER BY nombre
+    """).fetchall()
+
+
+    total_asociados = len(
+        asociados
+    )
+
+
+    conexion.close()
+
+
+    return render_template(
+        "nuevos_asociados.html",
+        asociados=asociados,
+        categorias=categorias,
+        total_asociados=total_asociados,
+
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta,
+        categoria_socio_id=
+            categoria_socio_id,
+        estado=estado,
+        busqueda=busqueda
+    )
+
+@app.route(
+    "/nuevos-asociados/nuevo",
+    methods=["GET", "POST"]
+)
+@login_required
+def nuevo_asociado():
+
+    conexion = conectar()
+
+
+    categorias = conexion.execute("""
+        SELECT
+            id,
+            nombre
+        FROM categorias_socio
+        WHERE estado = 'ACTIVO'
+        ORDER BY nombre
+    """).fetchall()
+
+
+    empleados = conexion.execute("""
+        SELECT
+            id,
+            nombre
+        FROM usuarios
+        WHERE estado = 'ACTIVO'
+        ORDER BY nombre
+    """).fetchall()
+
+
+    ahora = datetime.now(
+        ZoneInfo(
+            "America/Argentina/Buenos_Aires"
+        )
+    )
+
+
+    fecha_predeterminada = (
+        request.form.get("fecha")
+        or ahora.strftime("%Y-%m-%d")
+    )
+
+    hora_predeterminada = (
+        request.form.get("hora")
+        or ahora.strftime("%H:%M")
+    )
+
+
+    if request.method == "POST":
+
+        fecha = request.form.get(
+            "fecha",
+            ""
+        ).strip()
+
+        hora = request.form.get(
+            "hora",
+            ""
+        ).strip()
+
+        nombre = texto_mayusculas(
+            request.form.get(
+                "nombre",
+                ""
+            )
+        )
+
+        dni = texto_mayusculas(
+            request.form.get(
+                "dni",
+                ""
+            )
+        )
+
+        categoria_socio_id = (
+            request.form.get(
+                "categoria_socio_id",
+                ""
+            )
+        )
+
+        empleado_seleccion = (
+            request.form.get(
+                "empleado",
+                ""
+            )
+        )
+
+        empleado_otro = texto_mayusculas(
+            request.form.get(
+                "empleado_otro",
+                ""
+            )
+        )
+
+
+        # --------------------------------
+        # DATOS OBLIGATORIOS
+        # --------------------------------
+
+        if (
+            not fecha
+            or not hora
+            or not nombre
+            or not dni
+        ):
+
+            conexion.close()
+
+            flash(
+                "Completá todos los campos obligatorios.",
+                "error"
+            )
+
+            return redirect(
+                url_for(
+                    "nuevo_asociado"
+                )
+            )
+
+
+        # --------------------------------
+        # CATEGORÍA
+        # --------------------------------
+
+        categoria = conexion.execute("""
+            SELECT id
+            FROM categorias_socio
+            WHERE id = ?
+            AND estado = 'ACTIVO'
+        """, (
+            categoria_socio_id,
+        )).fetchone()
+
+
+        if categoria is None:
+
+            conexion.close()
+
+            flash(
+                "La categoría seleccionada no es válida.",
+                "error"
+            )
+
+            return redirect(
+                url_for(
+                    "nuevo_asociado"
+                )
+            )
+
+
+        # --------------------------------
+        # EMPLEADO
+        # --------------------------------
+
+        empleado_usuario_id = None
+
+
+        if empleado_seleccion == "OTRO":
+
+            if not empleado_otro:
+
+                conexion.close()
+
+                flash(
+                    "Ingresá el nombre del empleado.",
+                    "error"
+                )
+
+                return redirect(
+                    url_for(
+                        "nuevo_asociado"
+                    )
+                )
+
+        else:
+
+            empleado = conexion.execute("""
+                SELECT id
+                FROM usuarios
+                WHERE id = ?
+                AND estado = 'ACTIVO'
+            """, (
+                empleado_seleccion,
+            )).fetchone()
+
+
+            if empleado is None:
+
+                conexion.close()
+
+                flash(
+                    "El empleado seleccionado no es válido.",
+                    "error"
+                )
+
+                return redirect(
+                    url_for(
+                        "nuevo_asociado"
+                    )
+                )
+
+
+            empleado_usuario_id = (
+                empleado["id"]
+            )
+
+            empleado_otro = None
+
+
+        # --------------------------------
+        # USUARIO QUE CARGA
+        # --------------------------------
+
+        usuario_id = session.get(
+            "usuario_id"
+        )
+
+
+        if not usuario_id:
+
+            conexion.close()
+
+            session.clear()
+
+            return redirect(
+                url_for("login")
+            )
+
+
+        creado_en = ahora.strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+
+
+        # --------------------------------
+        # INSERT
+        # --------------------------------
+
+        cursor = conexion.execute("""
+            INSERT INTO nuevos_asociados (
+                fecha,
+                hora,
+                nombre,
+                dni,
+                categoria_socio_id,
+                empleado_usuario_id,
+                empleado_otro,
+                creado_en,
+                usuario_id,
+                estado
+            )
+            VALUES (
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                'ACTIVO'
+            )
+        """, (
+            fecha,
+            hora,
+            nombre,
+            dni,
+            categoria_socio_id,
+            empleado_usuario_id,
+            empleado_otro,
+            creado_en,
+            usuario_id
+        ))
+
+
+        asociado_id = (
+            cursor.lastrowid
+        )
+
+
+        asociado_nuevo = conexion.execute("""
+            SELECT *
+            FROM nuevos_asociados
+            WHERE id = ?
+        """, (
+            asociado_id,
+        )).fetchone()
+
+
+        registrar_historial_nuevo_asociado(
+            conexion=conexion,
+            asociado_id=asociado_id,
+            accion="CREADO",
+            detalle="Se creó el nuevo asociado.",
+            datos_nuevos=dict(
+                asociado_nuevo
+            )
+        )
+
+
+        conexion.commit()
+        conexion.close()
+
+
+        flash(
+            "Nuevo asociado cargado correctamente.",
+            "exito"
+        )
+
+
+        return redirect(
+            url_for(
+                "nuevos_asociados"
+            )
+        )
+
+
+    conexion.close()
+
+
+    return render_template(
+        "nuevo_asociado.html",
+        categorias=categorias,
+        empleados=empleados,
+        fecha_predeterminada=
+            fecha_predeterminada,
+        hora_predeterminada=
+            hora_predeterminada
+    )
+
+@app.post(
+    "/nuevos-asociados/<int:id>/anular"
+)
+@login_required
+def anular_asociado(id):
+
+    conexion = conectar()
+
+
+    asociado = conexion.execute("""
+        SELECT *
+        FROM nuevos_asociados
+        WHERE id = ?
+    """, (
+        id,
+    )).fetchone()
+
+
+    if asociado is None:
+
+        conexion.close()
+
+        return (
+            "Asociado no encontrado",
+            404
+        )
+
+
+    if asociado["estado"] == "ANULADO":
+
+        conexion.close()
+
+        flash(
+            "El asociado ya se encuentra anulado.",
+            "error"
+        )
+
+        return redirect(
+            url_for("nuevos_asociados")
+        )
+
+
+    datos_anteriores = dict(
+        asociado
+    )
+
+
+    conexion.execute("""
+        UPDATE nuevos_asociados
+        SET estado = 'ANULADO'
+        WHERE id = ?
+    """, (
+        id,
+    ))
+
+
+    asociado_actualizado = conexion.execute("""
+        SELECT *
+        FROM nuevos_asociados
+        WHERE id = ?
+    """, (
+        id,
+    )).fetchone()
+
+
+    datos_nuevos = dict(
+        asociado_actualizado
+    )
+
+
+    registrar_historial_nuevo_asociado(
+        conexion=conexion,
+        asociado_id=id,
+        accion="ANULADO",
+        detalle="Se anuló el registro del asociado.",
+        datos_anteriores=datos_anteriores,
+        datos_nuevos=datos_nuevos
+    )
+
+
+    conexion.commit()
+    conexion.close()
+
+
+    flash(
+        "Asociado anulado correctamente.",
+        "exito"
+    )
+
+
+    return redirect(
+        url_for("nuevos_asociados")
+    )
+
+@app.post(
+    "/nuevos-asociados/<int:id>/reactivar"
+)
+@login_required
+def reactivar_asociado(id):
+
+    conexion = conectar()
+
+
+    asociado = conexion.execute("""
+        SELECT *
+        FROM nuevos_asociados
+        WHERE id = ?
+    """, (
+        id,
+    )).fetchone()
+
+
+    if asociado is None:
+
+        conexion.close()
+
+        return (
+            "Asociado no encontrado",
+            404
+        )
+
+
+    if asociado["estado"] == "ACTIVO":
+
+        conexion.close()
+
+        flash(
+            "El asociado ya se encuentra activo.",
+            "error"
+        )
+
+        return redirect(
+            url_for("nuevos_asociados")
+        )
+
+
+    datos_anteriores = dict(
+        asociado
+    )
+
+
+    conexion.execute("""
+        UPDATE nuevos_asociados
+        SET estado = 'ACTIVO'
+        WHERE id = ?
+    """, (
+        id,
+    ))
+
+
+    asociado_actualizado = conexion.execute("""
+        SELECT *
+        FROM nuevos_asociados
+        WHERE id = ?
+    """, (
+        id,
+    )).fetchone()
+
+
+    datos_nuevos = dict(
+        asociado_actualizado
+    )
+
+
+    registrar_historial_nuevo_asociado(
+        conexion=conexion,
+        asociado_id=id,
+        accion="REACTIVADO",
+        detalle="Se reactivó el registro del asociado.",
+        datos_anteriores=datos_anteriores,
+        datos_nuevos=datos_nuevos
+    )
+
+
+    conexion.commit()
+    conexion.close()
+
+
+    flash(
+        "Asociado reactivado correctamente.",
+        "exito"
+    )
+
+
+    return redirect(
+        url_for("nuevos_asociados")
+    )
+
+@app.route(
+    "/nuevos-asociados/<int:id>/editar",
+    methods=["GET", "POST"]
+)
+@login_required
+def editar_asociado(id):
+
+    conexion = conectar()
+
+
+    # --------------------------------
+    # OBTENER ASOCIADO
+    # --------------------------------
+
+    asociado = conexion.execute("""
+        SELECT *
+        FROM nuevos_asociados
+        WHERE id = ?
+    """, (
+        id,
+    )).fetchone()
+
+
+    if asociado is None:
+
+        conexion.close()
+
+        return (
+            "Asociado no encontrado",
+            404
+        )
+
+
+    # --------------------------------
+    # CATEGORÍAS
+    # --------------------------------
+
+    categorias = conexion.execute("""
+        SELECT
+            id,
+            nombre,
+            estado
+        FROM categorias_socio
+        ORDER BY nombre
+    """).fetchall()
+
+
+    nombres_categorias = {
+        categoria["id"]: categoria["nombre"]
+        for categoria in categorias
+    }
+
+
+    # --------------------------------
+    # EMPLEADOS / USUARIOS
+    # --------------------------------
+
+    empleados = conexion.execute("""
+        SELECT
+            id,
+            nombre,
+            estado
+        FROM usuarios
+        ORDER BY nombre
+    """).fetchall()
+
+
+    nombres_empleados = {
+        empleado["id"]: empleado["nombre"]
+        for empleado in empleados
+    }
+
+
+    # --------------------------------
+    # GUARDAR CAMBIOS
+    # --------------------------------
+
+    if request.method == "POST":
+
+        fecha = request.form.get(
+            "fecha",
+            ""
+        ).strip()
+
+        hora = request.form.get(
+            "hora",
+            ""
+        ).strip()
+
+        nombre = texto_mayusculas(
+            request.form.get(
+                "nombre",
+                ""
+            )
+        )
+
+        dni = texto_mayusculas(
+            request.form.get(
+                "dni",
+                ""
+            )
+        )
+
+        categoria_socio_id = request.form.get(
+            "categoria_socio_id",
+            ""
+        )
+
+        empleado_seleccion = request.form.get(
+            "empleado",
+            ""
+        )
+
+        empleado_otro = texto_mayusculas(
+            request.form.get(
+                "empleado_otro",
+                ""
+            )
+        )
+
+
+        # --------------------------------
+        # CAMPOS OBLIGATORIOS
+        # --------------------------------
+
+        if (
+            not fecha
+            or not hora
+            or not nombre
+            or not dni
+        ):
+
+            conexion.close()
+
+            flash(
+                "Completá todos los campos obligatorios.",
+                "error"
+            )
+
+            return redirect(
+                url_for(
+                    "editar_asociado",
+                    id=id
+                )
+            )
+
+
+        # --------------------------------
+        # VALIDAR CATEGORÍA
+        # --------------------------------
+
+        categoria = conexion.execute("""
+            SELECT
+                id,
+                nombre,
+                estado
+            FROM categorias_socio
+            WHERE id = ?
+        """, (
+            categoria_socio_id,
+        )).fetchone()
+
+
+        if categoria is None:
+
+            conexion.close()
+
+            flash(
+                "La categoría seleccionada no existe.",
+                "error"
+            )
+
+            return redirect(
+                url_for(
+                    "editar_asociado",
+                    id=id
+                )
+            )
+
+
+        # Permitir conservar una categoría
+        # inactiva si ya estaba asignada.
+
+        if (
+            categoria["estado"] != "ACTIVO"
+            and str(categoria_socio_id)
+            != str(asociado["categoria_socio_id"])
+        ):
+
+            conexion.close()
+
+            flash(
+                "No se puede seleccionar una categoría inactiva.",
+                "error"
+            )
+
+            return redirect(
+                url_for(
+                    "editar_asociado",
+                    id=id
+                )
+            )
+
+
+        # --------------------------------
+        # VALIDAR EMPLEADO
+        # --------------------------------
+
+        empleado_usuario_id = None
+
+
+        if empleado_seleccion == "OTRO":
+
+            if not empleado_otro:
+
+                conexion.close()
+
+                flash(
+                    "Ingresá el nombre del empleado.",
+                    "error"
+                )
+
+                return redirect(
+                    url_for(
+                        "editar_asociado",
+                        id=id
+                    )
+                )
+
+
+        else:
+
+            empleado = conexion.execute("""
+                SELECT
+                    id,
+                    nombre,
+                    estado
+                FROM usuarios
+                WHERE id = ?
+            """, (
+                empleado_seleccion,
+            )).fetchone()
+
+
+            if empleado is None:
+
+                conexion.close()
+
+                flash(
+                    "El empleado seleccionado no existe.",
+                    "error"
+                )
+
+                return redirect(
+                    url_for(
+                        "editar_asociado",
+                        id=id
+                    )
+                )
+
+
+            # Permitir conservar un usuario
+            # inactivo si ya era quien lo asoció.
+
+            if (
+                empleado["estado"] != "ACTIVO"
+                and str(empleado_seleccion)
+                != str(asociado["empleado_usuario_id"])
+            ):
+
+                conexion.close()
+
+                flash(
+                    "No se puede seleccionar un empleado inactivo.",
+                    "error"
+                )
+
+                return redirect(
+                    url_for(
+                        "editar_asociado",
+                        id=id
+                    )
+                )
+
+
+            empleado_usuario_id = (
+                empleado["id"]
+            )
+
+            empleado_otro = None
+
+
+        # --------------------------------
+        # DATOS ANTERIORES
+        # --------------------------------
+
+        datos_anteriores = dict(
+            asociado
+        )
+
+
+        # --------------------------------
+        # ACTUALIZAR
+        # --------------------------------
+
+        conexion.execute("""
+            UPDATE nuevos_asociados
+
+            SET
+                fecha = ?,
+                hora = ?,
+                nombre = ?,
+                dni = ?,
+                categoria_socio_id = ?,
+                empleado_usuario_id = ?,
+                empleado_otro = ?
+
+            WHERE id = ?
+        """, (
+            fecha,
+            hora,
+            nombre,
+            dni,
+            categoria_socio_id,
+            empleado_usuario_id,
+            empleado_otro,
+            id
+        ))
+
+
+        # --------------------------------
+        # DATOS NUEVOS
+        # --------------------------------
+
+        asociado_actualizado = conexion.execute("""
+            SELECT *
+            FROM nuevos_asociados
+            WHERE id = ?
+        """, (
+            id,
+        )).fetchone()
+
+
+        datos_nuevos = dict(
+            asociado_actualizado
+        )
+
+
+        # --------------------------------
+        # DETECTAR CAMBIOS
+        # --------------------------------
+
+        cambios = []
+
+
+        # FECHA
+
+        if (
+            datos_anteriores["fecha"]
+            != datos_nuevos["fecha"]
+        ):
+
+            cambios.append(
+                f"Fecha: "
+                f"{datos_anteriores['fecha']} → "
+                f"{datos_nuevos['fecha']}"
+            )
+
+
+        # HORA
+
+        if (
+            datos_anteriores["hora"]
+            != datos_nuevos["hora"]
+        ):
+
+            cambios.append(
+                f"Hora: "
+                f"{datos_anteriores['hora']} → "
+                f"{datos_nuevos['hora']}"
+            )
+
+
+        # NOMBRE
+
+        if (
+            datos_anteriores["nombre"]
+            != datos_nuevos["nombre"]
+        ):
+
+            cambios.append(
+                f"Nombre: "
+                f"{datos_anteriores['nombre']} → "
+                f"{datos_nuevos['nombre']}"
+            )
+
+
+        # DNI
+
+        if (
+            datos_anteriores["dni"]
+            != datos_nuevos["dni"]
+        ):
+
+            cambios.append(
+                f"DNI: "
+                f"{datos_anteriores['dni']} → "
+                f"{datos_nuevos['dni']}"
+            )
+
+
+        # CATEGORÍA
+
+        if (
+            str(
+                datos_anteriores[
+                    "categoria_socio_id"
+                ]
+            )
+            != str(
+                datos_nuevos[
+                    "categoria_socio_id"
+                ]
+            )
+        ):
+
+            categoria_anterior = (
+                nombres_categorias.get(
+                    datos_anteriores[
+                        "categoria_socio_id"
+                    ],
+                    "Desconocida"
+                )
+            )
+
+            categoria_nueva = (
+                nombres_categorias.get(
+                    datos_nuevos[
+                        "categoria_socio_id"
+                    ],
+                    categoria["nombre"]
+                )
+            )
+
+            cambios.append(
+                f"Categoría: "
+                f"{categoria_anterior} → "
+                f"{categoria_nueva}"
+            )
+
+
+        # --------------------------------
+        # EMPLEADO QUE LO ASOCIÓ
+        # --------------------------------
+
+        if datos_anteriores["empleado_usuario_id"]:
+
+            empleado_anterior = (
+                nombres_empleados.get(
+                    datos_anteriores[
+                        "empleado_usuario_id"
+                    ],
+                    "Desconocido"
+                )
+            )
+
+        else:
+
+            empleado_anterior = (
+                datos_anteriores[
+                    "empleado_otro"
+                ]
+                or "—"
+            )
+
+
+        if datos_nuevos["empleado_usuario_id"]:
+
+            empleado_nuevo = (
+                nombres_empleados.get(
+                    datos_nuevos[
+                        "empleado_usuario_id"
+                    ],
+                    "Desconocido"
+                )
+            )
+
+        else:
+
+            empleado_nuevo = (
+                datos_nuevos[
+                    "empleado_otro"
+                ]
+                or "—"
+            )
+
+
+        if empleado_anterior != empleado_nuevo:
+
+            cambios.append(
+                f"Asociado por: "
+                f"{empleado_anterior} → "
+                f"{empleado_nuevo}"
+            )
+
+
+        # --------------------------------
+        # HISTORIAL
+        # --------------------------------
+
+        if cambios:
+
+            registrar_historial_nuevo_asociado(
+                conexion=conexion,
+                asociado_id=id,
+                accion="EDITADO",
+                detalle="; ".join(
+                    cambios
+                ),
+                datos_anteriores=
+                    datos_anteriores,
+                datos_nuevos=
+                    datos_nuevos
+            )
+
+
+        conexion.commit()
+        conexion.close()
+
+
+        flash(
+            "Asociado actualizado correctamente.",
+            "exito"
+        )
+
+        return redirect(
+            url_for(
+                "nuevos_asociados"
+            )
+        )
+
+
+    # --------------------------------
+    # MOSTRAR FORMULARIO
+    # --------------------------------
+
+    conexion.close()
+
+
+    return render_template(
+        "editar_asociado.html",
+        asociado=asociado,
+        categorias=categorias,
+        empleados=empleados
+    )
+
+@app.route(
+    "/nuevos-asociados/<int:id>/historial"
+)
+@login_required
+def historial_asociado(id):
+
+    conexion = conectar()
+
+
+    # --------------------------------
+    # ASOCIADO
+    # --------------------------------
+
+    asociado = conexion.execute("""
+        SELECT
+            nuevos_asociados.*,
+
+            categorias_socio.nombre
+                AS categoria_nombre,
+
+            COALESCE(
+                usuarios_empleado.nombre,
+                nuevos_asociados.empleado_otro
+            )
+                AS empleado_nombre,
+
+            usuarios_carga.nombre
+                AS usuario_carga_nombre
+
+        FROM nuevos_asociados
+
+        INNER JOIN categorias_socio
+            ON nuevos_asociados.categoria_socio_id
+            = categorias_socio.id
+
+        LEFT JOIN usuarios AS usuarios_empleado
+            ON nuevos_asociados.empleado_usuario_id
+            = usuarios_empleado.id
+
+        INNER JOIN usuarios AS usuarios_carga
+            ON nuevos_asociados.usuario_id
+            = usuarios_carga.id
+
+        WHERE nuevos_asociados.id = ?
+    """, (
+        id,
+    )).fetchone()
+
+
+    if asociado is None:
+
+        conexion.close()
+
+        return (
+            "Asociado no encontrado",
+            404
+        )
+
+
+    # --------------------------------
+    # HISTORIAL
+    # --------------------------------
+
+    historial = conexion.execute("""
+        SELECT
+            historial_nuevos_asociados.*,
+            usuarios.nombre
+                AS usuario_nombre
+
+        FROM historial_nuevos_asociados
+
+        INNER JOIN usuarios
+            ON historial_nuevos_asociados.usuario_id
+            = usuarios.id
+
+        WHERE historial_nuevos_asociados.asociado_id = ?
+
+        ORDER BY
+            historial_nuevos_asociados.fecha_hora DESC,
+            historial_nuevos_asociados.id DESC
+    """, (
+        id,
+    )).fetchall()
+
+
+    conexion.close()
+
+
+    return render_template(
+        "historial_asociado.html",
+        asociado=asociado,
+        historial=historial
+    )
+
+@app.route(
+    "/nuevos-asociados/exportar"
+)
+@login_required
+def exportar_nuevos_asociados():
+
+    conexion = conectar()
+
+
+    # --------------------------------
+    # FILTROS
+    # --------------------------------
+
+    fecha_desde = request.args.get(
+        "fecha_desde",
+        ""
+    )
+
+    fecha_hasta = request.args.get(
+        "fecha_hasta",
+        ""
+    )
+
+    categoria_socio_id = request.args.get(
+        "categoria_socio_id",
+        ""
+    )
+
+    estado = request.args.get(
+        "estado",
+        "ACTIVO"
+    )
+
+    busqueda = request.args.get(
+        "busqueda",
+        ""
+    ).strip()
+
+
+    condiciones = []
+    parametros = []
+
+
+    if fecha_desde:
+
+        condiciones.append(
+            "nuevos_asociados.fecha >= ?"
+        )
+
+        parametros.append(
+            fecha_desde
+        )
+
+
+    if fecha_hasta:
+
+        condiciones.append(
+            "nuevos_asociados.fecha <= ?"
+        )
+
+        parametros.append(
+            fecha_hasta
+        )
+
+
+    if categoria_socio_id:
+
+        condiciones.append(
+            "nuevos_asociados.categoria_socio_id = ?"
+        )
+
+        parametros.append(
+            categoria_socio_id
+        )
+
+
+    if estado:
+
+        condiciones.append(
+            "nuevos_asociados.estado = ?"
+        )
+
+        parametros.append(
+            estado
+        )
+
+
+    if busqueda:
+
+        condiciones.append("""
+            (
+                nuevos_asociados.nombre LIKE ?
+                OR nuevos_asociados.dni LIKE ?
+                OR categorias_socio.nombre LIKE ?
+                OR usuarios_empleado.nombre LIKE ?
+                OR nuevos_asociados.empleado_otro LIKE ?
+            )
+        """)
+
+        busqueda_sql = (
+            f"%{busqueda}%"
+        )
+
+        parametros.extend([
+            busqueda_sql,
+            busqueda_sql,
+            busqueda_sql,
+            busqueda_sql,
+            busqueda_sql
+        ])
+
+
+    where_sql = ""
+
+    if condiciones:
+
+        where_sql = (
+            "WHERE "
+            + " AND ".join(
+                condiciones
+            )
+        )
+
+
+    # --------------------------------
+    # CONSULTA
+    # --------------------------------
+
+    asociados = conexion.execute(f"""
+        SELECT
+            nuevos_asociados.fecha,
+            nuevos_asociados.hora,
+            nuevos_asociados.nombre,
+            nuevos_asociados.dni,
+
+            categorias_socio.nombre
+                AS categoria_nombre,
+
+            COALESCE(
+                usuarios_empleado.nombre,
+                nuevos_asociados.empleado_otro
+            )
+                AS empleado_nombre,
+
+            usuarios_carga.nombre
+                AS usuario_carga_nombre,
+
+            nuevos_asociados.creado_en,
+            nuevos_asociados.estado
+
+        FROM nuevos_asociados
+
+        INNER JOIN categorias_socio
+            ON nuevos_asociados.categoria_socio_id
+            = categorias_socio.id
+
+        LEFT JOIN usuarios AS usuarios_empleado
+            ON nuevos_asociados.empleado_usuario_id
+            = usuarios_empleado.id
+
+        INNER JOIN usuarios AS usuarios_carga
+            ON nuevos_asociados.usuario_id
+            = usuarios_carga.id
+
+        {where_sql}
+
+        ORDER BY
+            nuevos_asociados.fecha ASC,
+            nuevos_asociados.hora ASC,
+            nuevos_asociados.id ASC
+    """, parametros).fetchall()
+
+
+    conexion.close()
+
+
+    # --------------------------------
+    # CREAR EXCEL
+    # --------------------------------
+
+    libro = Workbook()
+
+    hoja = libro.active
+
+    hoja.title = (
+        "Nuevos asociados"
+    )
+
+
+    encabezados = [
+        "Fecha",
+        "Hora",
+        "Nombre",
+        "DNI",
+        "Categoría",
+        "Asociado por",
+        "Cargado por",
+        "Cargado el",
+        "Estado"
+    ]
+
+
+    hoja.append(
+        encabezados
+    )
+
+
+    # --------------------------------
+    # ENCABEZADOS EN NEGRITA
+    # --------------------------------
+
+    for celda in hoja[1]:
+
+        celda.font = Font(
+            bold=True
+        )
+
+
+    # --------------------------------
+    # DATOS
+    # --------------------------------
+
+    for asociado in asociados:
+
+        try:
+
+            fecha_excel = datetime.strptime(
+                asociado["fecha"],
+                "%Y-%m-%d"
+            ).date()
+
+        except (
+            ValueError,
+            TypeError
+        ):
+
+            fecha_excel = asociado[
+                "fecha"
+            ]
+
+
+        try:
+
+            hora_excel = datetime.strptime(
+                asociado["hora"],
+                "%H:%M"
+            ).time()
+
+        except (
+            ValueError,
+            TypeError
+        ):
+
+            hora_excel = asociado[
+                "hora"
+            ]
+
+
+        try:
+
+            creado_en_excel = datetime.strptime(
+                asociado["creado_en"],
+                "%Y-%m-%d %H:%M:%S"
+            )
+
+        except (
+            ValueError,
+            TypeError
+        ):
+
+            creado_en_excel = asociado[
+                "creado_en"
+            ]
+
+
+        hoja.append([
+            fecha_excel,
+            hora_excel,
+            asociado["nombre"],
+            asociado["dni"],
+            asociado["categoria_nombre"],
+            asociado["empleado_nombre"],
+            asociado["usuario_carga_nombre"],
+            creado_en_excel,
+            asociado["estado"]
+        ])
+
+
+    # --------------------------------
+    # FORMATOS
+    # --------------------------------
+
+    for fila in range(
+        2,
+        hoja.max_row + 1
+    ):
+
+        hoja.cell(
+            row=fila,
+            column=1
+        ).number_format = (
+            "dd/mm/yyyy"
+        )
+
+        hoja.cell(
+            row=fila,
+            column=2
+        ).number_format = (
+            "hh:mm"
+        )
+
+        hoja.cell(
+            row=fila,
+            column=8
+        ).number_format = (
+            "dd/mm/yyyy hh:mm"
+        )
+
+
+    # --------------------------------
+    # ANCHO DE COLUMNAS
+    # --------------------------------
+
+    anchos = {
+        "A": 14,
+        "B": 10,
+        "C": 30,
+        "D": 16,
+        "E": 24,
+        "F": 28,
+        "G": 24,
+        "H": 21,
+        "I": 14
+    }
+
+
+    for columna, ancho in anchos.items():
+
+        hoja.column_dimensions[
+            columna
+        ].width = ancho
+
+
+    # --------------------------------
+    # ARCHIVO EN MEMORIA
+    # --------------------------------
+
+    archivo = BytesIO()
+
+    libro.save(
+        archivo
+    )
+
+    archivo.seek(0)
+
+
+    fecha_archivo = datetime.now(
+        ZoneInfo(
+            "America/Argentina/Buenos_Aires"
+        )
+    ).strftime(
+        "%Y-%m-%d_%H-%M"
+    )
+
+
+    return send_file(
+        archivo,
+        as_attachment=True,
+        download_name=(
+            f"nuevos_asociados_"
+            f"{fecha_archivo}.xlsx"
+        ),
+        mimetype=(
+            "application/"
+            "vnd.openxmlformats-officedocument."
+            "spreadsheetml.sheet"
         )
     )
 

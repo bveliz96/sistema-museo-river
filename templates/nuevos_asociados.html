@@ -1,0 +1,536 @@
+{% extends "base.html" %}
+
+{% block title %}
+Nuevos asociados
+{% endblock %}
+
+
+{% block contenido %}
+
+<header class="encabezado">
+
+    <div>
+
+        <h1>
+            Nuevos asociados
+        </h1>
+
+        <p class="subtitulo">
+            Registro de nuevas asociaciones
+        </p>
+
+    </div>
+
+
+    <div class="encabezado-acciones">
+
+        <a
+            href="{{ url_for(
+                'exportar_nuevos_asociados',
+                fecha_desde=fecha_desde,
+                fecha_hasta=fecha_hasta,
+                categoria_socio_id=categoria_socio_id,
+                estado=estado,
+                busqueda=busqueda
+            ) }}"
+            class="boton-secundario"
+        >
+            📥 Exportar Excel
+        </a>
+
+
+        <a
+            href="{{ url_for('nuevo_asociado') }}"
+            class="boton"
+        >
+            + Nuevo asociado
+        </a>
+
+    </div>
+
+</header>
+
+
+<!-- ============================= -->
+<!-- FILTROS -->
+<!-- ============================= -->
+
+<section class="panel">
+
+    <form
+        method="GET"
+        class="filtros-grid"
+    >
+
+
+        <!-- FECHA DESDE -->
+
+        <div class="campo">
+
+            <label for="fecha_desde">
+                Desde
+            </label>
+
+            <input
+                type="date"
+                id="fecha_desde"
+                name="fecha_desde"
+                value="{{ fecha_desde }}"
+            >
+
+        </div>
+
+
+        <!-- FECHA HASTA -->
+
+        <div class="campo">
+
+            <label for="fecha_hasta">
+                Hasta
+            </label>
+
+            <input
+                type="date"
+                id="fecha_hasta"
+                name="fecha_hasta"
+                value="{{ fecha_hasta }}"
+            >
+
+        </div>
+
+
+        <!-- CATEGORÍA -->
+
+        <div class="campo">
+
+            <label for="categoria_socio_id">
+                Categoría
+            </label>
+
+            <select
+                id="categoria_socio_id"
+                name="categoria_socio_id"
+            >
+
+                <option value="">
+                    Todas
+                </option>
+
+
+                {% for categoria in categorias %}
+
+                    <option
+                        value="{{ categoria['id'] }}"
+
+                        {% if
+                            categoria_socio_id|string
+                            == categoria['id']|string
+                        %}
+                            selected
+                        {% endif %}
+                    >
+
+                        {{ categoria["nombre"] }}
+
+                        {% if categoria["estado"] != "ACTIVO" %}
+                            (Inactiva)
+                        {% endif %}
+
+                    </option>
+
+                {% endfor %}
+
+            </select>
+
+        </div>
+
+
+        <!-- ESTADO -->
+
+        <div class="campo">
+
+            <label for="estado">
+                Estado
+            </label>
+
+            <select
+                id="estado"
+                name="estado"
+            >
+
+                <option
+                    value="ACTIVO"
+
+                    {% if estado == "ACTIVO" %}
+                        selected
+                    {% endif %}
+                >
+                    Activos
+                </option>
+
+
+                <option
+                    value="ANULADO"
+
+                    {% if estado == "ANULADO" %}
+                        selected
+                    {% endif %}
+                >
+                    Anulados
+                </option>
+
+
+                <option
+                    value=""
+
+                    {% if not estado %}
+                        selected
+                    {% endif %}
+                >
+                    Todos
+                </option>
+
+            </select>
+
+        </div>
+
+
+        <!-- BÚSQUEDA -->
+
+        <div class="campo campo-completo">
+
+            <label for="busqueda">
+                Buscar
+            </label>
+
+            <input
+                type="text"
+                id="busqueda"
+                name="busqueda"
+                value="{{ busqueda }}"
+                placeholder="Nombre, DNI, categoría o empleado..."
+            >
+
+        </div>
+
+
+        <!-- BOTONES -->
+
+        <div class="filtros-botones">
+
+            <button
+                type="submit"
+                class="boton"
+            >
+                Filtrar
+            </button>
+
+            <a
+                href="{{ url_for('nuevos_asociados') }}"
+                class="boton-secundario"
+            >
+                Limpiar
+            </a>
+
+        </div>
+
+    </form>
+
+</section>
+
+
+<!-- ============================= -->
+<!-- RESULTADO -->
+<!-- ============================= -->
+
+<div class="resultado-info">
+
+    <span>
+
+        Registros encontrados:
+
+        <strong>
+            {{ total_asociados }}
+        </strong>
+
+    </span>
+
+</div>
+
+
+<!-- ============================= -->
+<!-- TABLA -->
+<!-- ============================= -->
+
+<section class="panel">
+
+    {% if asociados %}
+
+        <div class="tabla-contenedor">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>
+                            Fecha
+                        </th>
+
+                        <th>
+                            Hora
+                        </th>
+
+                        <th>
+                            Nombre
+                        </th>
+
+                        <th>
+                            DNI
+                        </th>
+
+                        <th>
+                            Categoría
+                        </th>
+
+                        <th>
+                            Asociado por
+                        </th>
+
+                        <th>
+                            Cargado por
+                        </th>
+
+                        <th>
+                            Hora de carga
+                        </th>
+
+                        <th>
+                            Estado
+                        </th>
+
+                        <th>
+                            Acciones
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody>
+
+                    {% for asociado in asociados %}
+
+                        <tr>
+
+                            <!-- FECHA -->
+
+                            <td>
+                                {{ asociado["fecha"] }}
+                            </td>
+
+
+                            <!-- HORA -->
+
+                            <td>
+                                {{ asociado["hora"] }}
+                            </td>
+
+
+                            <!-- NOMBRE -->
+
+                            <td>
+                                {{ asociado["nombre"] }}
+                            </td>
+
+
+                            <!-- DNI -->
+
+                            <td>
+                                {{ asociado["dni"] }}
+                            </td>
+
+
+                            <!-- CATEGORÍA -->
+
+                            <td>
+                                {{ asociado["categoria_nombre"] }}
+                            </td>
+
+
+                            <!-- ASOCIADO POR -->
+
+                            <td>
+                                {{ asociado["empleado_nombre"] }}
+                            </td>
+
+
+                            <!-- CARGADO POR -->
+
+                            <td>
+                                {{ asociado["usuario_carga_nombre"] }}
+                            </td>
+
+
+                            <!-- HORA DE CARGA -->
+
+                            <td>
+                                {{ asociado["creado_en"] }}
+                            </td>
+
+
+                            <!-- ESTADO -->
+
+                            <td>
+
+                                {% if asociado["estado"] == "ACTIVO" %}
+
+                                    <span class="estado-activa">
+                                        ACTIVO
+                                    </span>
+
+                                {% else %}
+
+                                    <span class="estado-anulada">
+                                        ANULADO
+                                    </span>
+
+                                {% endif %}
+
+                            </td>
+
+
+                            <!-- ACCIONES -->
+
+                            <td>
+
+                                <div class="acciones-reserva">
+
+
+                                    <!-- EDITAR -->
+
+                                    <a
+                                        href="{{ url_for(
+                                            'editar_asociado',
+                                            id=asociado['id']
+                                        ) }}"
+                                        class="boton-secundario"
+                                    >
+                                        Editar
+                                    </a>
+
+
+                                    <!-- HISTORIAL -->
+
+                                    <a
+                                        href="{{ url_for(
+                                            'historial_asociado',
+                                            id=asociado['id']
+                                        ) }}"
+                                        class="boton-secundario"
+                                    >
+                                        Historial
+                                    </a>
+
+
+                                    <!-- ANULAR -->
+
+                                    {% if asociado["estado"] == "ACTIVO" %}
+
+                                        <form
+                                            method="POST"
+                                            action="{{ url_for(
+                                                'anular_asociado',
+                                                id=asociado['id']
+                                            ) }}"
+                                            onsubmit="
+                                                return confirm(
+                                                    '¿Seguro que querés anular este asociado?'
+                                                );
+                                            "
+                                        >
+
+                                            <input
+                                                type="hidden"
+                                                name="csrf_token"
+                                                value="{{ csrf_token() }}"
+                                            >
+
+                                            <button
+                                                type="submit"
+                                                class="boton-peligro"
+                                            >
+                                                Anular
+                                            </button>
+
+                                        </form>
+
+
+                                    <!-- REACTIVAR -->
+
+                                    {% else %}
+
+                                        <form
+                                            method="POST"
+                                            action="{{ url_for(
+                                                'reactivar_asociado',
+                                                id=asociado['id']
+                                            ) }}"
+                                        >
+
+                                            <input
+                                                type="hidden"
+                                                name="csrf_token"
+                                                value="{{ csrf_token() }}"
+                                            >
+
+                                            <button
+                                                type="submit"
+                                                class="boton-reactivar"
+                                            >
+                                                Reactivar
+                                            </button>
+
+                                        </form>
+
+                                    {% endif %}
+
+
+                                </div>
+
+                            </td>
+
+                        </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+
+    {% else %}
+
+        <div class="sin-datos">
+
+            <p>
+                No hay nuevos asociados para mostrar.
+            </p>
+
+            <a
+                href="{{ url_for('nuevo_asociado') }}"
+                class="boton"
+            >
+                + Cargar asociado
+            </a>
+        </div>
+
+    {% endif %}
+
+</section>
+
+{% endblock %}
