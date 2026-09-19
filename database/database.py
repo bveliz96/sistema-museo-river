@@ -22,7 +22,7 @@ def conectar():
     )
 
     conexion.execute(
-        "PRAGMA busy_timeout = 5000"
+        "PRAGMA busy_timeout = 10000"
     )
 
     return conexion

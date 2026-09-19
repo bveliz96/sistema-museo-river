@@ -1,0 +1,348 @@
+{% extends "base.html" %}
+
+
+{% block title %}
+Grupos
+{% endblock %}
+
+
+{% block contenido %}
+
+
+<header class="encabezado">
+
+    <div>
+
+        <h1>
+            Grupos
+        </h1>
+
+        <p class="subtitulo">
+            Registro de ingresos grupales
+        </p>
+
+    </div>
+
+</header>
+
+
+<form
+    method="POST"
+    action="{{ url_for('registrar_grupo') }}"
+    id="form-grupo"
+    class="grupo-panel"
+>
+
+    <input
+        type="hidden"
+        name="csrf_token"
+        value="{{ csrf_token() }}"
+    >
+
+    <input
+        type="hidden"
+        name="cantidad"
+        id="grupo-cantidad-input"
+        value="1"
+    >
+
+    <input
+        type="hidden"
+        name="tipo_visita_id"
+        id="grupo-tipo-input"
+    >
+
+    <input
+        type="hidden"
+        name="destino"
+        id="grupo-destino-input"
+    >
+
+    <input
+        type="hidden"
+        name="tour_id"
+        id="grupo-tour-input"
+    >
+
+
+    <!-- ============================= -->
+    <!-- CANTIDAD                      -->
+    <!-- ============================= -->
+
+    <section class="grupo-seccion">
+
+        <span class="protocolo-etiqueta">
+            Cantidad de personas
+        </span>
+
+
+        <div class="grupo-contador">
+
+            <button
+                type="button"
+                class="grupo-contador-boton"
+                onclick="cambiarCantidadGrupo(-1)"
+            >
+                −
+            </button>
+
+
+            <strong
+                id="grupo-cantidad"
+                class="grupo-contador-numero"
+            >
+                1
+            </strong>
+
+
+            <button
+                type="button"
+                class="grupo-contador-boton"
+                onclick="cambiarCantidadGrupo(1)"
+            >
+                +
+            </button>
+
+        </div>
+
+
+        <div class="grupo-cantidad-rapida">
+
+            <button
+                type="button"
+                class="grupo-cantidad-rapida-boton"
+                onclick="cambiarCantidadGrupo(-10)"
+            >
+                -10
+            </button>
+
+            <button
+                type="button"
+                class="grupo-cantidad-rapida-boton"
+                onclick="cambiarCantidadGrupo(-20)"
+            >
+                -20
+            </button>
+
+            <button
+                type="button"
+                class="grupo-cantidad-rapida-boton"
+                onclick="cambiarCantidadGrupo(-50)"
+            >
+                -50
+            </button>
+
+            <button
+                type="button"
+                class="grupo-cantidad-rapida-boton"
+                onclick="cambiarCantidadGrupo(10)"
+            >
+                +10
+            </button>
+
+            <button
+                type="button"
+                class="grupo-cantidad-rapida-boton"
+                onclick="cambiarCantidadGrupo(20)"
+            >
+                +20
+            </button>
+
+            <button
+                type="button"
+                class="grupo-cantidad-rapida-boton"
+                onclick="cambiarCantidadGrupo(50)"
+            >
+                +50
+            </button>
+
+        </div>
+
+    </section>
+
+
+    <!-- ============================= -->
+    <!-- TIPO DE VISITA                -->
+    <!-- ============================= -->
+
+    <section class="grupo-seccion">
+
+        <span class="protocolo-etiqueta">
+            Tipo de visita
+        </span>
+
+
+        <div class="grupo-opciones">
+
+            {% for tipo in tipos_visita %}
+
+                <button
+                    type="button"
+                    class="grupo-opcion"
+                    data-tipo-id="{{ tipo['id'] }}"
+                    data-circuito="{{ tipo['circuito_recepcion'] or '' }}"
+                    onclick="seleccionarTipoVisita(this)"
+                >
+                    {{ tipo["nombre"] }}
+                </button>
+
+            {% endfor %}
+
+        </div>
+
+
+        <div
+            id="grupo-sin-circuito"
+            class="protocolo-sin-tour"
+            hidden
+        >
+            ⚠ Este tipo de visita no tiene un circuito
+            de recepción configurado.
+        </div>
+
+    </section>
+
+
+    <!-- ============================= -->
+    <!-- DESTINO                       -->
+    <!-- ============================= -->
+
+    <section
+        class="grupo-seccion"
+        id="grupo-seccion-destino"
+        hidden
+    >
+
+        <span class="protocolo-etiqueta">
+            ¿Cómo ingresa?
+        </span>
+
+
+        <div class="grupo-opciones">
+
+            <button
+                type="button"
+                class="grupo-opcion"
+                data-destino="NORMAL"
+                onclick="seleccionarDestino(this)"
+            >
+                Visita normal
+            </button>
+
+
+            <button
+                type="button"
+                class="grupo-opcion"
+                data-destino="PRIVADA"
+                onclick="seleccionarDestino(this)"
+            >
+                Visita privada
+            </button>
+
+        </div>
+
+    </section>
+
+
+    <!-- ============================= -->
+    <!-- TOURS                         -->
+    <!-- ============================= -->
+
+    <section
+        class="grupo-seccion"
+        id="grupo-seccion-tours"
+        hidden
+    >
+
+        <span class="protocolo-etiqueta">
+            Seleccionar tour
+        </span>
+
+
+        <div
+            class="protocolo-tours-grid"
+            id="grupo-tours"
+        >
+
+            {% for tour in tours_abiertos %}
+
+                <button
+                    type="button"
+                    class="boton-tour-protocolo grupo-tour"
+                    data-tour-id="{{ tour['id'] }}"
+                    data-circuito="{{ tour['circuito'] }}"
+                    onclick="seleccionarTour(this)"
+                    hidden
+                >
+
+                    {% if tour["circuito"] == "MUSEO" %}
+
+                        <strong>
+                            Museo
+                        </strong>
+
+                    {% else %}
+
+                        <strong>
+                            {{ tour["hora"] }}
+                        </strong>
+
+                    {% endif %}
+
+
+                    <span>
+                        {{ tour["total"] }}
+                        personas
+                    </span>
+
+                </button>
+
+            {% endfor %}
+
+        </div>
+
+
+        <div
+            id="grupo-sin-tours"
+            class="protocolo-sin-tour"
+            hidden
+        >
+            No hay tours abiertos para este circuito.
+        </div>
+
+    </section>
+
+
+    <!-- ============================= -->
+    <!-- CONFIRMAR                     -->
+    <!-- ============================= -->
+
+    <section
+        class="grupo-seccion"
+        id="grupo-seccion-confirmar"
+        hidden
+    >
+
+        <button
+            type="submit"
+            class="boton grupo-confirmar"
+            id="grupo-confirmar"
+        >
+            Registrar grupo
+        </button>
+
+    </section>
+
+
+</form>
+
+
+<script
+    src="{{ url_for(
+        'static',
+        filename='js/recepcion_grupos.js'
+    ) }}"
+></script>
+
+
+{% endblock %}

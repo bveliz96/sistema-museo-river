@@ -9,7 +9,6 @@ from pathlib import Path
 from datetime import datetime
 from rutas_sistema import (
     ARCHIVO_DATABASE,
-    ARCHIVO_CONFIGURACION_PANEL,
     ARCHIVO_LOG_SERVIDOR,
     CARPETA_BACKUPS,
     CARPETA_LOGS,
@@ -96,7 +95,7 @@ class PanelServidor:
             "Servidor - Sistema Museo River"
         )
 
-        self.ventana.geometry("720x720")
+        self.ventana.geometry("800x800")
         self.ventana.resizable(False, False)
 
         self.crear_interfaz()
@@ -249,6 +248,49 @@ class PanelServidor:
             pady=3
         )
 
+        botones_red = ttk.Frame(
+            bloque_direcciones
+        )
+
+        botones_red.pack(
+            fill="x",
+            pady=(12, 0)
+        )
+
+        botones_red.columnconfigure(
+            0,
+            weight=1
+        )
+
+        botones_red.columnconfigure(
+            1,
+            weight=1
+        )
+
+
+        ttk.Button(
+            botones_red,
+            text="Ver configuración de red",
+            command=self.mostrar_configuracion_red
+        ).grid(
+            row=0,
+            column=0,
+            padx=(0, 5),
+            sticky="ew"
+        )
+
+
+        ttk.Button(
+            botones_red,
+            text="Abrir configuración del router",
+            command=self.abrir_router
+        ).grid(
+            row=0,
+            column=1,
+            padx=(5, 0),
+            sticky="ew"
+        )
+
         botones_principales = ttk.Frame(
             contenedor
         )
@@ -374,6 +416,15 @@ class PanelServidor:
             column=1,
             padx=(5, 0),
             sticky="ew"
+        )
+
+        ttk.Label(
+            bloque_backups,
+            textvariable=self.ultimo_backup_var,
+            foreground="#666666"
+        ).pack(
+            anchor="w",
+            pady=(10, 0)
         )
 
     def cargar_configuracion(self):
@@ -512,6 +563,192 @@ class PanelServidor:
 
             if socket_temporal is not None:
                 socket_temporal.close()
+
+    def obtener_configuracion_red(self):
+
+        if os.name != "nt":
+
+            return {
+                "interfaz": "No disponible",
+                "ip": self.obtener_ip_local(),
+                "gateway": None,
+                "mac": "No disponible"
+            }
+
+
+        comando = r"""
+    $config = Get-NetIPConfiguration |
+        Where-Object {
+            $_.IPv4DefaultGateway -ne $null -and
+            $_.NetAdapter.Status -eq 'Up'
+        } |
+        Select-Object -First 1
+
+    if ($null -eq $config) {
+        exit 1
+    }
+
+    $adaptador = Get-NetAdapter `
+        -InterfaceIndex $config.InterfaceIndex
+
+    [PSCustomObject]@{
+        interfaz = $config.InterfaceAlias
+        ip = $config.IPv4Address.IPAddress
+        gateway = $config.IPv4DefaultGateway.NextHop
+        mac = $adaptador.MacAddress
+    } |
+    ConvertTo-Json -Compress
+    """
+
+
+        try:
+
+            opciones = {}
+
+            if os.name == "nt":
+
+                opciones[
+                    "creationflags"
+                ] = subprocess.CREATE_NO_WINDOW
+
+
+            resultado = subprocess.run(
+                [
+                    "powershell.exe",
+                    "-NoProfile",
+                    "-Command",
+                    comando
+                ],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                **opciones
+            )
+
+
+            if (
+                resultado.returncode != 0
+                or not resultado.stdout.strip()
+            ):
+
+                raise RuntimeError(
+                    "No se pudo obtener "
+                    "la configuración de red."
+                )
+
+
+            datos = json.loads(
+                resultado.stdout
+            )
+
+
+            return {
+                "interfaz": datos.get(
+                    "interfaz",
+                    "No disponible"
+                ),
+
+                "ip": datos.get(
+                    "ip",
+                    self.obtener_ip_local()
+                ),
+
+                "gateway": datos.get(
+                    "gateway"
+                ),
+
+                "mac": datos.get(
+                    "mac",
+                    "No disponible"
+                )
+            }
+
+
+        except (
+            subprocess.SubprocessError,
+            json.JSONDecodeError,
+            OSError,
+            RuntimeError
+        ):
+
+            return {
+                "interfaz": "No disponible",
+                "ip": self.obtener_ip_local(),
+                "gateway": None,
+                "mac": "No disponible"
+            }
+
+    def mostrar_configuracion_red(self):
+
+        datos = (
+            self.obtener_configuracion_red()
+        )
+
+
+        puerto = (
+            self.puerto_en_ejecucion
+            if self.servidor_activo()
+            else self.obtener_puerto(
+                mostrar_error=False
+            )
+        )
+
+
+        gateway = (
+            datos["gateway"]
+            or "No disponible"
+        )
+
+
+        mensaje = (
+            f"Adaptador:\n"
+            f"{datos['interfaz']}\n\n"
+
+            f"IP del servidor:\n"
+            f"{datos['ip']}\n\n"
+
+            f"Puerta de enlace / Router:\n"
+            f"{gateway}\n\n"
+
+            f"Dirección MAC:\n"
+            f"{datos['mac']}\n\n"
+
+            f"Puerto del sistema:\n"
+            f"{puerto or 'No disponible'}"
+        )
+
+
+        messagebox.showinfo(
+            "Configuración de red",
+            mensaje
+        )
+
+    def abrir_router(self):
+
+        datos = (
+            self.obtener_configuracion_red()
+        )
+
+
+        gateway = datos["gateway"]
+
+
+        if not gateway:
+
+            messagebox.showwarning(
+                "Router no encontrado",
+                (
+                    "No se pudo detectar "
+                    "la dirección del router."
+                )
+            )
+
+            return
+
+
+        webbrowser.open(
+            f"http://{gateway}"
+        )
 
     def actualizar_direcciones(self):
 
@@ -701,6 +938,24 @@ class PanelServidor:
             return
 
         self.actualizar_estado()
+
+
+        # --------------------------------
+        # ACTUALIZAR ÚLTIMO BACKUP
+        # --------------------------------
+
+        self.actualizar_ultimo_backup()
+
+
+        # Lo volvemos a comprobar unos
+        # segundos después por si el backup
+        # todavía estaba terminando.
+
+        self.ventana.after(
+            2000,
+            self.actualizar_ultimo_backup
+        )
+
 
         if self.abrir_navegador_var.get():
             self.abrir_sistema()

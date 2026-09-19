@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+
+
+{% block title %}
+Inicio - Recepción
+{% endblock %}
+
+
+{% block contenido %}
+
+
+<header class="encabezado">
+
+    <div>
+
+        <h1>
+            Recepción
+        </h1>
+
+        <p class="subtitulo">
+            Resumen operativo del día
+        </p>
+
+    </div>
+
+</header>
+
+
+<div class="inicio-recepcion-resumen">
+
+
+    <!-- ============================= -->
+    <!-- PRÓXIMO TOUR                 -->
+    <!-- ============================= -->
+
+    <a
+        href="{{ url_for('ingresos') }}"
+        class="inicio-recepcion-card"
+    >
+
+        <span class="inicio-recepcion-etiqueta">
+            Próximo tour
+        </span>
+
+
+        {% if proximo_tour %}
+
+            <strong class="inicio-recepcion-numero">
+                {{ proximo_tour["hora"] }}
+            </strong>
+
+            <span class="inicio-recepcion-detalle">
+                {{ proximo_tour["circuito"] }}
+            </span>
+
+            <span class="inicio-recepcion-secundario">
+                {{ proximo_tour["total"] }}
+                personas cargadas
+            </span>
+
+        {% else %}
+
+            <strong class="inicio-recepcion-vacio">
+                Sin próximos tours
+            </strong>
+
+            <span class="inicio-recepcion-secundario">
+                Ver ingresos
+            </span>
+
+        {% endif %}
+
+    </a>
+
+
+    <!-- ============================= -->
+    <!-- PERSONAS DEL DÍA             -->
+    <!-- ============================= -->
+
+    <a
+        href="{{ url_for('historial_recepcion') }}"
+        class="inicio-recepcion-card"
+    >
+
+        <span class="inicio-recepcion-etiqueta">
+            Personas de hoy
+        </span>
+
+        <strong class="inicio-recepcion-numero">
+            {{ total_personas_hoy }}
+        </strong>
+
+        <span class="inicio-recepcion-secundario">
+            registradas en recepción
+        </span>
+
+    </a>
+
+
+    <!-- ============================= -->
+    <!-- PROTOCOLOS                   -->
+    <!-- ============================= -->
+
+    <a
+        href="{{ url_for('recepcion_protocolos') }}"
+        class="inicio-recepcion-card"
+    >
+
+        <span class="inicio-recepcion-etiqueta">
+            Protocolos pendientes
+        </span>
+
+        <strong class="inicio-recepcion-numero">
+            {{ protocolos_pendientes["cantidad"] }}
+        </strong>
+
+        <span class="inicio-recepcion-secundario">
+            {{ protocolos_pendientes["personas"] }}
+            personas pendientes
+        </span>
+
+    </a>
+
+
+    <!-- ============================= -->
+    <!-- TOURS ABIERTOS               -->
+    <!-- ============================= -->
+
+    <a
+        href="{{ url_for('ingresos') }}"
+        class="inicio-recepcion-card"
+    >
+
+        <span class="inicio-recepcion-etiqueta">
+            Tours abiertos
+        </span>
+
+        <strong class="inicio-recepcion-numero">
+            {{ total_tours_abiertos }}
+        </strong>
+
+
+        <div class="inicio-recepcion-tours">
+
+            <span>
+
+                Estadio
+
+                <strong>
+                    {{ tours_por_circuito["ESTADIO"] }}
+                </strong>
+
+            </span>
+
+
+            <span>
+
+                Tribuna
+
+                <strong>
+                    {{ tours_por_circuito["TRIBUNA"] }}
+                </strong>
+
+            </span>
+
+
+            <span>
+
+                Museo
+
+                <strong>
+                    {{ tours_por_circuito["MUSEO"] }}
+                </strong>
+
+            </span>
+
+        </div>
+
+    </a>
+
+
+</div>
+
+<section class="panel inicio-finales">
+
+    <div class="inicio-finales-encabezado">
+
+        <div>
+
+            <h2>
+                Totales finales de hoy
+            </h2>
+
+            <p class="subtitulo">
+                Personas de tours ya cerrados
+            </p>
+
+        </div>
+
+        <a
+            href="{{ url_for('historial_recepcion') }}"
+            class="boton-secundario"
+        >
+            Ver historial
+        </a>
+
+    </div>
+
+
+    {% if totales_finales_hoy %}
+
+        <div class="resumen-finales">
+
+            {% for tipo in totales_finales_hoy %}
+
+                <div class="resumen-final-card">
+
+                    <span>
+                        {{ tipo["nombre"] }}
+                    </span>
+
+                    <strong>
+                        {{ tipo["cantidad"] }}
+                    </strong>
+
+                </div>
+
+            {% endfor %}
+
+
+            <div class="
+                resumen-final-card
+                resumen-final-total
+            ">
+
+                <span>
+                    Total
+                </span>
+
+                <strong>
+                    {{ total_final_hoy }}
+                </strong>
+
+            </div>
+
+        </div>
+
+    {% else %}
+
+        <p class="texto-vacio">
+            Todavía no hay tours cerrados hoy.
+        </p>
+
+    {% endif %}
+
+</section>
+
+
+{% endblock %}

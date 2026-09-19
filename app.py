@@ -1,5 +1,6 @@
 import json
 import os
+from tkinter.font import Font
 from database.init_db import inicializar_base_datos
 from rutas_sistema import (
     CARPETA_TEMPLATES,
@@ -15,7 +16,8 @@ from flask import (
     url_for,
     send_file,
     session,
-    flash
+    flash,
+    abort
 )
 
 from flask_wtf.csrf import CSRFProtect
@@ -23,6 +25,12 @@ from flask_wtf.csrf import CSRFProtect
 from database.database import conectar
 
 from openpyxl import Workbook
+
+from openpyxl.styles import (
+    Font,
+    PatternFill,
+    Alignment
+)
 
 from io import BytesIO
 
@@ -107,6 +115,40 @@ def login_required(funcion):
 
     return funcion_protegida
 
+
+def cajero_required(funcion):
+
+    @wraps(funcion)
+    def funcion_protegida(*args, **kwargs):
+
+        usuario = obtener_usuario_actual()
+
+        if usuario is None:
+            return redirect(url_for("login"))
+
+        if usuario["rol"] not in ("CAJERO", "ADMIN"):
+            abort(403)
+
+        return funcion(*args, **kwargs)
+
+    return funcion_protegida
+
+def recepcion_required(funcion):
+
+    @wraps(funcion)
+    def funcion_protegida(*args, **kwargs):
+
+        usuario = obtener_usuario_actual()
+
+        if usuario is None:
+            return redirect(url_for("login"))
+
+        if usuario["rol"] not in ("RECEPCION", "ADMIN"):
+            abort(403)
+
+        return funcion(*args, **kwargs)
+
+    return funcion_protegida
 
 def admin_required(funcion):
 
@@ -229,8 +271,167 @@ def registrar_historial_protocolo(
         fecha_hora
     ))
 
+def crear_alerta(
+    conexion,
+    tipo,
+    tour_id,
+    destinatario_rol,
+    mensaje,
+    creado_en
+):
+
+    conexion.execute("""
+        INSERT OR IGNORE INTO alertas (
+            tipo,
+            tour_id,
+            destinatario_rol,
+            mensaje,
+            creado_en
+        )
+        VALUES (?, ?, ?, ?, ?)
+    """, (
+        tipo,
+        tour_id,
+        destinatario_rol,
+        mensaje,
+        creado_en
+    ))
+
+def crear_alerta_protocolo(
+    conexion,
+    protocolo_id,
+    mensaje,
+    creado_en
+):
+
+    conexion.execute("""
+        INSERT OR IGNORE INTO alertas (
+            tipo,
+            protocolo_id,
+            destinatario_rol,
+            mensaje,
+            creado_en
+        )
+        VALUES (
+            'NUEVO_PROTOCOLO',
+            ?,
+            'RECEPCION',
+            ?,
+            ?
+        )
+    """, (
+        protocolo_id,
+        mensaje,
+        creado_en
+    ))
+
+def verificar_alertas_capacidad(
+    conexion,
+    tour_id,
+    creado_en
+):
+
+    tour = conexion.execute("""
+        SELECT
+            tours.id,
+            tours.hora,
+            tours.circuito,
+            tours.capacidad,
+
+            COALESCE(
+                SUM(ingresos.cantidad),
+                0
+            ) AS total
+
+        FROM tours
+
+        LEFT JOIN ingresos
+            ON ingresos.tour_id =
+               tours.id
+
+        WHERE tours.id = ?
+
+        GROUP BY
+            tours.id,
+            tours.hora,
+            tours.circuito,
+            tours.capacidad
+    """, (
+        tour_id,
+    )).fetchone()
+
+
+    if tour is None:
+        return
+
+
+    if tour["capacidad"] is None:
+        return
+
+
+    disponibles = (
+        tour["capacidad"]
+        - tour["total"]
+    )
+
+
+    # ====================================
+    # ALERTA 10 LUGARES
+    # ====================================
+
+    if disponibles <= 10:
+
+        if disponibles > 0:
+
+            mensaje = (
+                f"Tour {tour['circuito']} "
+                f"{tour['hora']}: "
+                f"quedan {disponibles} lugares."
+            )
+
+        else:
+
+            mensaje = (
+                f"Tour {tour['circuito']} "
+                f"{tour['hora']}: "
+                f"capacidad alcanzada o excedida."
+            )
+
+
+        crear_alerta(
+            conexion,
+            "FALTAN_15",
+            tour_id,
+            "CAJERO",
+            mensaje,
+            creado_en
+        )
+
+
+    # ====================================
+    # ALERTA 20 LUGARES
+    # ====================================
+
+    elif disponibles <= 20:
+
+        mensaje = (
+            f"Tour {tour['circuito']} "
+            f"{tour['hora']}: "
+            f"quedan {disponibles} lugares."
+        )
+
+
+        crear_alerta(
+            conexion,
+            "FALTAN_20",
+            tour_id,
+            "CAJERO",
+            mensaje,
+            creado_en
+        )
+
 @app.route("/protocolos")
-@login_required
+@cajero_required
 def protocolos():
 
     conexion = conectar()
@@ -527,7 +728,7 @@ def protocolos():
     "/protocolos/nuevo",
     methods=["GET", "POST"]
 )
-@login_required
+@cajero_required
 def nuevo_protocolo():
 
     conexion = conectar()
@@ -546,6 +747,7 @@ def nuevo_protocolo():
         ORDER BY nombre
     """).fetchall()
 
+
     tipos_visita = conexion.execute("""
         SELECT
             id,
@@ -562,9 +764,12 @@ def nuevo_protocolo():
         )
     )
 
+    hoy = ahora.date().isoformat()
+
+
     fecha_predeterminada = (
         request.form.get("fecha")
-        or ahora.strftime("%Y-%m-%d")
+        or hoy
     )
 
 
@@ -579,23 +784,32 @@ def nuevo_protocolo():
             ""
         ).strip()
 
+
         tipo_protocolo_id = request.form.get(
             "tipo_protocolo_id",
             ""
         )
+
 
         tipo_visita_id = request.form.get(
             "tipo_visita_id",
             ""
         )
 
+
         cantidad_texto = request.form.get(
             "cantidad",
             ""
         ).strip()
+
+
         descripcion = texto_mayusculas(
-            request.form.get("descripcion", "")
+            request.form.get(
+                "descripcion",
+                ""
+            )
         )
+
 
         # --------------------------------
         # VALIDAR CANTIDAD
@@ -610,6 +824,7 @@ def nuevo_protocolo():
         except ValueError:
 
             cantidad = 0
+
 
         if cantidad <= 0:
 
@@ -632,13 +847,16 @@ def nuevo_protocolo():
         # --------------------------------
 
         tipo_protocolo = conexion.execute("""
-            SELECT id
+            SELECT
+                id,
+                nombre
             FROM tipos_protocolo
             WHERE id = ?
             AND estado = 'ACTIVO'
         """, (
             tipo_protocolo_id,
         )).fetchone()
+
 
         if tipo_protocolo is None:
 
@@ -661,13 +879,16 @@ def nuevo_protocolo():
         # --------------------------------
 
         tipo_visita = conexion.execute("""
-            SELECT id
+            SELECT
+                id,
+                nombre
             FROM tipos_visita
             WHERE id = ?
             AND estado = 'ACTIVO'
         """, (
             tipo_visita_id,
         )).fetchone()
+
 
         if tipo_visita is None:
 
@@ -693,6 +914,7 @@ def nuevo_protocolo():
             "usuario_id"
         )
 
+
         if not usuario_id:
 
             conexion.close()
@@ -713,38 +935,44 @@ def nuevo_protocolo():
         # INSERT
         # --------------------------------
 
-        cursor=conexion.execute("""
-                INSERT INTO protocolos (
-                    fecha,
-                    tipo_protocolo_id,
-                    tipo_visita_id,
-                    cantidad,
-                    descripcion,
-                    creado_en,
-                    usuario_id,
-                    estado
-                )
-                VALUES (
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    'ACTIVO'
-                )
-            """, (
+        cursor = conexion.execute("""
+            INSERT INTO protocolos (
                 fecha,
                 tipo_protocolo_id,
                 tipo_visita_id,
                 cantidad,
                 descripcion,
                 creado_en,
-                usuario_id
-            ))
+                usuario_id,
+                estado
+            )
+            VALUES (
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                'ACTIVO'
+            )
+        """, (
+            fecha,
+            tipo_protocolo_id,
+            tipo_visita_id,
+            cantidad,
+            descripcion,
+            creado_en,
+            usuario_id
+        ))
+
 
         protocolo_id = cursor.lastrowid
+
+
+        # --------------------------------
+        # HISTORIAL DEL PROTOCOLO
+        # --------------------------------
 
         protocolo_nuevo = conexion.execute("""
             SELECT *
@@ -753,6 +981,7 @@ def nuevo_protocolo():
         """, (
             protocolo_id,
         )).fetchone()
+
 
         registrar_historial_protocolo(
             conexion=conexion,
@@ -764,13 +993,34 @@ def nuevo_protocolo():
             )
         )
 
+
+        # --------------------------------
+        # ALERTA A RECEPCIÓN
+        # --------------------------------
+
+        # Solo avisamos si el protocolo
+        # corresponde al día de hoy.
+
+        if fecha == hoy:
+
+            mensaje = (
+                f"{tipo_protocolo['nombre']} · "
+                f"{tipo_visita['nombre']} · "
+                f"{cantidad} personas."
+            )
+
+
+            crear_alerta_protocolo(
+                conexion=conexion,
+                protocolo_id=protocolo_id,
+                mensaje=mensaje,
+                creado_en=creado_en
+            )
+
+
         conexion.commit()
         conexion.close()
 
-        flash(
-            "Protocolo cargado correctamente.",
-            "exito"
-        )
 
         return redirect(
             url_for("protocolos")
@@ -778,6 +1028,7 @@ def nuevo_protocolo():
 
 
     conexion.close()
+
 
     return render_template(
         "nuevo_protocolo.html",
@@ -787,8 +1038,9 @@ def nuevo_protocolo():
             fecha_predeterminada
     )
 
+
 @app.route("/inmersivo")
-@login_required
+@cajero_required
 def inmersivo():
 
     conexion = conectar()
@@ -1139,7 +1391,7 @@ def inmersivo():
     "/inmersivo/nuevo",
     methods=["GET", "POST"]
 )
-@login_required
+@cajero_required
 def nuevo_inmersivo():
 
     conexion = conectar()
@@ -1427,10 +1679,7 @@ def nuevo_inmersivo():
         conexion.close()
 
 
-        flash(
-            "Ingreso de inmersivo cargado correctamente.",
-            "exito"
-        )
+
 
         return redirect(
             url_for("inmersivo")
@@ -1451,7 +1700,7 @@ def nuevo_inmersivo():
     "/inmersivo/<int:id>/editar",
     methods=["GET", "POST"]
 )
-@login_required
+@cajero_required
 def editar_inmersivo(id):
 
     conexion = conectar()
@@ -1893,10 +2142,7 @@ def editar_inmersivo(id):
         conexion.close()
 
 
-        flash(
-            "Ingreso de inmersivo actualizado correctamente.",
-            "exito"
-        )
+
 
         return redirect(
             url_for("inmersivo")
@@ -1920,7 +2166,7 @@ def editar_inmersivo(id):
     "/inmersivo/<int:id>/anular",
     methods=["POST"]
 )
-@login_required
+@cajero_required
 def anular_inmersivo(id):
 
     conexion = conectar()
@@ -1998,10 +2244,7 @@ def anular_inmersivo(id):
     conexion.close()
 
 
-    flash(
-        "Ingreso de inmersivo anulado correctamente.",
-        "exito"
-    )
+
 
     return redirect(
         url_for("inmersivo")
@@ -2012,7 +2255,7 @@ def anular_inmersivo(id):
     "/inmersivo/<int:id>/reactivar",
     methods=["POST"]
 )
-@login_required
+@cajero_required
 def reactivar_inmersivo(id):
 
     conexion = conectar()
@@ -2090,10 +2333,7 @@ def reactivar_inmersivo(id):
     conexion.close()
 
 
-    flash(
-        "Ingreso de inmersivo reactivado correctamente.",
-        "exito"
-    )
+
 
     return redirect(
         url_for("inmersivo")
@@ -2157,7 +2397,7 @@ def registrar_historial_inmersivo(
 @app.route(
     "/inmersivo/<int:id>/historial"
 )
-@login_required
+@cajero_required
 def historial_inmersivo(id):
 
     conexion = conectar()
@@ -2225,7 +2465,7 @@ def historial_inmersivo(id):
     )
 
 @app.route("/inmersivo/exportar")
-@login_required
+@cajero_required
 def exportar_inmersivo():
 
     conexion = conectar()
@@ -2630,10 +2870,7 @@ def inactivar_usuario(id):
     conexion.commit()
     conexion.close()
 
-    flash(
-        "Usuario inactivado correctamente.",
-        "exito"
-    )
+
 
     return redirect(url_for("usuarios"))
 
@@ -2669,10 +2906,7 @@ def activar_usuario(id):
     conexion.commit()
     conexion.close()
 
-    flash(
-        "Usuario activado correctamente.",
-        "exito"
-    )
+
 
     return redirect(url_for("usuarios"))
 
@@ -2696,7 +2930,7 @@ def nuevo_usuario():
         elif password != confirmacion:
             error = "Las contraseñas no coinciden."
 
-        elif rol not in ("ADMIN", "OPERADOR"):
+        elif rol not in ("ADMIN", "CAJERO","RECEPCION"):
             error = "El rol seleccionado no es válido."
 
         else:
@@ -2810,7 +3044,7 @@ def editar_usuario(id):
                 "son obligatorios."
             )
 
-        elif rol not in ("ADMIN", "OPERADOR"):
+        elif rol not in ("ADMIN", "CAJERO", "RECEPCION"):
 
             error = "El rol seleccionado no es válido."
 
@@ -2893,10 +3127,7 @@ def editar_usuario(id):
 
             conexion.close()
 
-            flash(
-                "Usuario actualizado correctamente.",
-                "exito"
-            )
+
 
             return redirect(url_for("usuarios"))
 
@@ -2989,10 +3220,7 @@ def cambiar_password_usuario(id):
             conexion.commit()
             conexion.close()
 
-            flash(
-                "Contraseña actualizada correctamente.",
-                "exito"
-            )
+
 
             return redirect(url_for("usuarios"))
 
@@ -3099,11 +3327,7 @@ def configuracion_inicial():
             conexion.commit()
             conexion.close()
 
-            flash(
-                "Administrador creado correctamente. "
-                "Ya podés iniciar sesión.",
-                "exito"
-            )
+
 
             return redirect(
                 url_for("login")
@@ -3193,10 +3417,243 @@ def logout():
 @login_required
 def inicio():
 
+    usuario = obtener_usuario_actual()
+
+    ahora = datetime.now(
+        ZoneInfo(
+            "America/Argentina/Buenos_Aires"
+        )
+    )
+
+
+    hoy = ahora.date().isoformat()
+
+
+    hora_actual = ahora.strftime(
+        "%H:%M"
+    )
+
+    # ====================================
+    # INICIO DE RECEPCIÓN
+    # ====================================
+
+    if usuario["rol"] == "RECEPCION":
+
+        conexion = conectar()
+
+
+        # --------------------------------
+        # PRÓXIMO TOUR
+        # --------------------------------
+
+        proximo_tour = conexion.execute("""
+            SELECT
+                tours.id,
+                tours.hora,
+                tours.circuito,
+
+                COALESCE(
+                    SUM(ingresos.cantidad),
+                    0
+                ) AS total
+
+            FROM tours
+
+            LEFT JOIN ingresos
+                ON ingresos.tour_id =
+                   tours.id
+
+            WHERE tours.fecha = ?
+            AND tours.estado = 'ABIERTO'
+            AND tours.hora IS NOT NULL
+            AND tours.hora >= ?
+
+            GROUP BY
+                tours.id,
+                tours.hora,
+                tours.circuito
+
+            ORDER BY tours.hora ASC
+
+            LIMIT 1
+        """, (
+            hoy,
+            hora_actual
+        )).fetchone()
+
+
+        # --------------------------------
+        # TOTAL PERSONAS DEL DÍA
+        # --------------------------------
+
+        total_personas_hoy = conexion.execute("""
+            SELECT
+                COALESCE(
+                    SUM(cantidad),
+                    0
+                )
+            FROM historial_recepcion
+            WHERE fecha = ?
+            AND estado = 'ACTIVO'
+        """, (
+            hoy,
+        )).fetchone()[0]
+
+
+        # --------------------------------
+        # PROTOCOLOS PENDIENTES
+        # --------------------------------
+
+        protocolos_pendientes = conexion.execute("""
+            SELECT
+                COUNT(*) AS cantidad,
+
+                COALESCE(
+                    SUM(cantidad),
+                    0
+                ) AS personas
+
+            FROM protocolos
+
+            WHERE fecha = ?
+            AND estado = 'ACTIVO'
+            AND recepcion_estado = 'PENDIENTE'
+        """, (
+            hoy,
+        )).fetchone()
+
+
+        # --------------------------------
+        # TOURS ABIERTOS
+        # --------------------------------
+
+        tours_abiertos_db = conexion.execute("""
+            SELECT
+                circuito,
+                COUNT(*) AS cantidad
+
+            FROM tours
+
+            WHERE fecha = ?
+            AND estado = 'ABIERTO'
+
+            GROUP BY circuito
+        """, (
+            hoy,
+        )).fetchall()
+
+
+        tours_por_circuito = {
+            "ESTADIO": 0,
+            "TRIBUNA": 0,
+            "MUSEO": 0
+        }
+
+
+        for fila in tours_abiertos_db:
+
+            tours_por_circuito[
+                fila["circuito"]
+            ] = fila["cantidad"]
+
+
+        total_tours_abiertos = sum(
+            tours_por_circuito.values()
+        )
+
+        # ====================================
+        # TOTALES FINALES DE HOY
+        # ====================================
+
+        filas_totales_hoy = conexion.execute("""
+            SELECT
+                tipos_visita.id,
+                tipos_visita.nombre,
+
+                COALESCE(
+                    SUM(ingresos.cantidad),
+                    0
+                ) AS cantidad
+
+            FROM tours
+
+            JOIN ingresos
+                ON ingresos.tour_id =
+                tours.id
+
+            JOIN tipos_visita
+                ON tipos_visita.id =
+                ingresos.tipo_visita_id
+
+            WHERE tours.fecha = ?
+
+            AND tours.estado = 'CERRADO'
+
+            GROUP BY
+                tipos_visita.id,
+                tipos_visita.nombre
+
+            ORDER BY
+                tipos_visita.nombre
+        """, (
+            hoy,
+        )).fetchall()
+
+
+        totales_finales_hoy = []
+
+
+        for fila in filas_totales_hoy:
+
+            totales_finales_hoy.append({
+                "nombre": fila["nombre"],
+                "cantidad": fila["cantidad"]
+            })
+
+
+        total_final_hoy = sum(
+            fila["cantidad"]
+            for fila in filas_totales_hoy
+        )
+
+
+        conexion.close()
+
+
+        return render_template(
+            "recepcion/inicio.html",
+
+            proximo_tour=
+                proximo_tour,
+
+            total_personas_hoy=
+                total_personas_hoy,
+
+            protocolos_pendientes=
+                protocolos_pendientes,
+
+            tours_por_circuito=
+                tours_por_circuito,
+
+            total_tours_abiertos=
+                total_tours_abiertos,
+            totales_finales_hoy=
+                totales_finales_hoy,
+            total_final_hoy=
+                total_final_hoy
+        )
+
+
+    # ====================================
+    # INICIO DE CAJA / ADMIN
+    # ====================================
+
     conexion = conectar()
 
     hoy = datetime.now(
-        ZoneInfo("America/Argentina/Buenos_Aires")
+        ZoneInfo(
+            "America/Argentina/Buenos_Aires"
+        )
     ).strftime("%Y-%m-%d")
 
 
@@ -3253,6 +3710,78 @@ def inicio():
         + total_menores
     )
 
+    # --------------------------------
+    # PRÓXIMO TOUR DE ESTADIO
+    # --------------------------------
+
+    proximo_estadio = conexion.execute("""
+        SELECT
+            tours.id,
+            tours.hora,
+
+            COALESCE(
+                SUM(ingresos.cantidad),
+                0
+            ) AS total
+
+        FROM tours
+
+        LEFT JOIN ingresos
+            ON ingresos.tour_id = tours.id
+
+        WHERE tours.fecha = ?
+        AND tours.circuito = 'ESTADIO'
+        AND tours.estado = 'ABIERTO'
+        AND tours.hora >= ?
+
+        GROUP BY
+            tours.id,
+            tours.hora
+
+        ORDER BY tours.hora ASC
+
+        LIMIT 1
+    """, (
+        hoy,
+        hora_actual
+    )).fetchone()
+
+
+    # --------------------------------
+    # PRÓXIMO TOUR DE TRIBUNA
+    # --------------------------------
+
+    proxima_tribuna = conexion.execute("""
+        SELECT
+            tours.id,
+            tours.hora,
+
+            COALESCE(
+                SUM(ingresos.cantidad),
+                0
+            ) AS total
+
+        FROM tours
+
+        LEFT JOIN ingresos
+            ON ingresos.tour_id = tours.id
+
+        WHERE tours.fecha = ?
+        AND tours.circuito = 'TRIBUNA'
+        AND tours.estado = 'ABIERTO'
+        AND tours.hora >= ?
+
+        GROUP BY
+            tours.id,
+            tours.hora
+
+        ORDER BY tours.hora ASC
+
+        LIMIT 1
+    """, (
+        hoy,
+        hora_actual
+    )).fetchone()
 
     # --------------------------------
     # PROTOCOLOS DE HOY
@@ -3306,6 +3835,12 @@ def inicio():
 
         cantidad_reservas=
             cantidad_reservas,
+
+        proximo_estadio=
+            proximo_estadio,
+
+        proxima_tribuna=
+            proxima_tribuna,
 
         total_mayores=
             total_mayores,
@@ -3458,10 +3993,7 @@ def editar_empresa(id):
             conexion.commit()
             conexion.close()
 
-            flash(
-                "Empresa actualizada correctamente.",
-                "exito"
-            )
+
 
             return redirect(url_for("empresas"))
 
@@ -3475,7 +4007,7 @@ def editar_empresa(id):
     )
 
 @app.route("/reservas")
-@login_required
+@cajero_required
 def reservas():
 
     conexion = conectar()
@@ -3792,7 +4324,7 @@ def reservas():
     )
 
 @app.route("/reservas/nueva_reserva", methods=["GET", "POST"])
-@login_required
+@cajero_required
 def nueva_reserva():
 
     conexion = conectar()
@@ -4095,7 +4627,7 @@ def nueva_reserva():
     )
 
 @app.route("/reservas/<int:id>/editar", methods=["GET", "POST"])
-@login_required
+@cajero_required
 def editar_reserva(id):
 
     conexion = conectar()
@@ -4502,7 +5034,7 @@ def editar_reserva(id):
     )
 
 @app.route("/reservas/<int:id>/anular", methods=["POST"])
-@login_required
+@cajero_required
 def anular_reserva(id):
 
     conexion = conectar()
@@ -4560,7 +5092,7 @@ def anular_reserva(id):
     return redirect(url_for("reservas"))
 
 @app.route("/reservas/<int:id>/reactivar", methods=["POST"])
-@login_required
+@cajero_required
 def reactivar_reserva(id):
 
     conexion = conectar()
@@ -4618,7 +5150,7 @@ def reactivar_reserva(id):
     return redirect(url_for("reservas"))
 
 @app.route("/reservas/<int:id>/historial")
-@login_required
+@cajero_required
 def historial_reserva(id):
 
     conexion = conectar()
@@ -4663,7 +5195,7 @@ def historial_reserva(id):
     )
 
 @app.route("/reservas/exportar")
-@login_required
+@cajero_required
 def exportar_reservas():
 
     conexion = conectar()
@@ -5072,7 +5604,7 @@ def activar_empresa(id):
     return redirect(url_for("empresas"))
 
 @app.route("/herramientas")
-@login_required
+@cajero_required
 def herramientas():
 
     return render_template(
@@ -5081,7 +5613,7 @@ def herramientas():
 
 
 @app.route("/herramientas/calculadora")
-@login_required
+@cajero_required
 def calculadora():
 
     return render_template(
@@ -5090,7 +5622,7 @@ def calculadora():
 
 
 @app.route("/herramientas/contador-billetes")
-@login_required
+@cajero_required
 def contador_billetes():
 
     return render_template(
@@ -5098,7 +5630,7 @@ def contador_billetes():
     )
 
 @app.route("/herramientas/cierre-cajas")
-@login_required
+@cajero_required
 def cierre_cajas():
 
     return render_template(
@@ -5106,7 +5638,7 @@ def cierre_cajas():
     )
 
 @app.route("/administracion")
-@login_required
+@cajero_required
 @admin_required
 def administracion():
 
@@ -5115,7 +5647,7 @@ def administracion():
     )
 
 @app.route("/administracion/tipos-visita")
-@login_required
+@cajero_required
 @admin_required
 def tipos_visita():
 
@@ -5142,7 +5674,6 @@ def tipos_visita():
     "/administracion/tipos-visita/nuevo",
     methods=["GET", "POST"]
 )
-@login_required
 @admin_required
 def nuevo_tipo_visita():
 
@@ -5151,6 +5682,12 @@ def nuevo_tipo_visita():
         nombre = texto_mayusculas(
             request.form.get("nombre", "")
         )
+
+        circuito_recepcion = request.form.get(
+            "circuito_recepcion",
+            ""
+        ).strip().upper()
+
 
         if not nombre:
 
@@ -5163,7 +5700,39 @@ def nuevo_tipo_visita():
                 url_for("nuevo_tipo_visita")
             )
 
+
+        # Si no selecciona circuito,
+        # queda sin configurar
+
+        if not circuito_recepcion:
+            circuito_recepcion = None
+
+
+        circuitos_validos = (
+            "ESTADIO",
+            "TRIBUNA",
+            "MUSEO"
+        )
+
+
+        if (
+            circuito_recepcion is not None
+            and circuito_recepcion
+            not in circuitos_validos
+        ):
+
+            flash(
+                "El circuito de recepción no es válido.",
+                "error"
+            )
+
+            return redirect(
+                url_for("nuevo_tipo_visita")
+            )
+
+
         conexion = conectar()
+
 
         existente = conexion.execute("""
             SELECT id
@@ -5172,6 +5741,7 @@ def nuevo_tipo_visita():
         """, (
             nombre,
         )).fetchone()
+
 
         if existente:
 
@@ -5186,27 +5756,31 @@ def nuevo_tipo_visita():
                 url_for("nuevo_tipo_visita")
             )
 
+
         conexion.execute("""
             INSERT INTO tipos_visita (
                 nombre,
+                circuito_recepcion,
                 estado
             )
-            VALUES (?, 'ACTIVO')
+            VALUES (?, ?, 'ACTIVO')
         """, (
             nombre,
+            circuito_recepcion
         ))
+
 
         conexion.commit()
         conexion.close()
 
-        flash(
-            "Tipo de visita creado correctamente.",
-            "exito"
-        )
+
+
+
 
         return redirect(
             url_for("tipos_visita")
         )
+
 
     return render_template(
         "nuevo_tipo_visita.html"
@@ -5214,33 +5788,49 @@ def nuevo_tipo_visita():
 
 
 @app.route(
-    "/administracion/tipos-visita/<int:id>/editar",
+    "/administracion/tipos-visita/<int:tipo_id>/editar",
     methods=["GET", "POST"]
 )
-@login_required
 @admin_required
-def editar_tipo_visita(id):
+def editar_tipo_visita(tipo_id):
 
     conexion = conectar()
 
     tipo = conexion.execute("""
-        SELECT *
+        SELECT
+            id,
+            nombre,
+            circuito_recepcion,
+            estado
         FROM tipos_visita
         WHERE id = ?
     """, (
-        id,
+        tipo_id,
     )).fetchone()
+
 
     if tipo is None:
 
         conexion.close()
-        return "Tipo de visita no encontrado", 404
+        abort(404)
+
 
     if request.method == "POST":
 
         nombre = texto_mayusculas(
             request.form.get("nombre", "")
         )
+
+        circuito_recepcion = request.form.get(
+            "circuito_recepcion",
+            ""
+        ).strip().upper()
+
+        estado = request.form.get(
+            "estado",
+            "ACTIVO"
+        ).strip().upper()
+
 
         if not nombre:
 
@@ -5254,9 +5844,62 @@ def editar_tipo_visita(id):
             return redirect(
                 url_for(
                     "editar_tipo_visita",
-                    id=id
+                    tipo_id=tipo_id
                 )
             )
+
+
+        if not circuito_recepcion:
+            circuito_recepcion = None
+
+
+        circuitos_validos = (
+            "ESTADIO",
+            "TRIBUNA",
+            "MUSEO"
+        )
+
+
+        if (
+            circuito_recepcion is not None
+            and circuito_recepcion
+            not in circuitos_validos
+        ):
+
+            conexion.close()
+
+            flash(
+                "El circuito de recepción no es válido.",
+                "error"
+            )
+
+            return redirect(
+                url_for(
+                    "editar_tipo_visita",
+                    tipo_id=tipo_id
+                )
+            )
+
+
+        if estado not in (
+            "ACTIVO",
+            "INACTIVO"
+        ):
+
+            conexion.close()
+
+            flash(
+                "El estado seleccionado no es válido.",
+                "error"
+            )
+
+            return redirect(
+                url_for(
+                    "editar_tipo_visita",
+                    tipo_id=tipo_id
+                )
+            )
+
 
         existente = conexion.execute("""
             SELECT id
@@ -5265,8 +5908,9 @@ def editar_tipo_visita(id):
             AND id != ?
         """, (
             nombre,
-            id
+            tipo_id
         )).fetchone()
+
 
         if existente:
 
@@ -5280,32 +5924,40 @@ def editar_tipo_visita(id):
             return redirect(
                 url_for(
                     "editar_tipo_visita",
-                    id=id
+                    tipo_id=tipo_id
                 )
             )
 
+
         conexion.execute("""
             UPDATE tipos_visita
-            SET nombre = ?
+            SET
+                nombre = ?,
+                circuito_recepcion = ?,
+                estado = ?
             WHERE id = ?
         """, (
             nombre,
-            id
+            circuito_recepcion,
+            estado,
+            tipo_id
         ))
+
 
         conexion.commit()
         conexion.close()
 
-        flash(
-            "Tipo de visita actualizado correctamente.",
-            "exito"
-        )
+
+
+
 
         return redirect(
             url_for("tipos_visita")
         )
 
+
     conexion.close()
+
 
     return render_template(
         "editar_tipo_visita.html",
@@ -5317,7 +5969,7 @@ def editar_tipo_visita(id):
     "/administracion/tipos-visita/<int:id>/inactivar",
     methods=["POST"]
 )
-@login_required
+@cajero_required
 @admin_required
 def inactivar_tipo_visita(id):
 
@@ -5334,10 +5986,7 @@ def inactivar_tipo_visita(id):
     conexion.commit()
     conexion.close()
 
-    flash(
-        "Tipo de visita inactivado.",
-        "exito"
-    )
+
 
     return redirect(
         url_for("tipos_visita")
@@ -5348,7 +5997,7 @@ def inactivar_tipo_visita(id):
     "/administracion/tipos-visita/<int:id>/activar",
     methods=["POST"]
 )
-@login_required
+@cajero_required
 @admin_required
 def activar_tipo_visita(id):
 
@@ -5365,17 +6014,14 @@ def activar_tipo_visita(id):
     conexion.commit()
     conexion.close()
 
-    flash(
-        "Tipo de visita activado.",
-        "exito"
-    )
+
 
     return redirect(
         url_for("tipos_visita")
     )
 
 @app.route("/administracion/tipos-protocolo")
-@login_required
+@cajero_required
 @admin_required
 def tipos_protocolo():
 
@@ -5402,7 +6048,7 @@ def tipos_protocolo():
     "/administracion/tipos-protocolo/nuevo",
     methods=["GET", "POST"]
 )
-@login_required
+@cajero_required
 @admin_required
 def nuevo_tipo_protocolo():
 
@@ -5459,10 +6105,7 @@ def nuevo_tipo_protocolo():
         conexion.commit()
         conexion.close()
 
-        flash(
-            "Tipo de protocolo creado correctamente.",
-            "exito"
-        )
+
 
         return redirect(
             url_for("tipos_protocolo")
@@ -5477,7 +6120,7 @@ def nuevo_tipo_protocolo():
     "/administracion/tipos-protocolo/<int:id>/editar",
     methods=["GET", "POST"]
 )
-@login_required
+@cajero_required
 @admin_required
 def editar_tipo_protocolo(id):
 
@@ -5563,10 +6206,8 @@ def editar_tipo_protocolo(id):
         conexion.commit()
         conexion.close()
 
-        flash(
-            "Tipo de protocolo actualizado correctamente.",
-            "exito"
-        )
+
+
 
         return redirect(
             url_for("tipos_protocolo")
@@ -5584,7 +6225,7 @@ def editar_tipo_protocolo(id):
     "/administracion/tipos-protocolo/<int:id>/inactivar",
     methods=["POST"]
 )
-@login_required
+@cajero_required
 @admin_required
 def inactivar_tipo_protocolo(id):
 
@@ -5601,10 +6242,7 @@ def inactivar_tipo_protocolo(id):
     conexion.commit()
     conexion.close()
 
-    flash(
-        "Tipo de protocolo inactivado.",
-        "exito"
-    )
+
 
     return redirect(
         url_for("tipos_protocolo")
@@ -5615,7 +6253,7 @@ def inactivar_tipo_protocolo(id):
     "/administracion/tipos-protocolo/<int:id>/activar",
     methods=["POST"]
 )
-@login_required
+@cajero_required
 @admin_required
 def activar_tipo_protocolo(id):
 
@@ -5632,10 +6270,7 @@ def activar_tipo_protocolo(id):
     conexion.commit()
     conexion.close()
 
-    flash(
-        "Tipo de protocolo activado.",
-        "exito"
-    )
+
 
     return redirect(
         url_for("tipos_protocolo")
@@ -5645,7 +6280,7 @@ def activar_tipo_protocolo(id):
     "/protocolos/<int:id>/editar",
     methods=["GET", "POST"]
 )
-@login_required
+@cajero_required
 def editar_protocolo(id):
 
     conexion = conectar()
@@ -6055,10 +6690,7 @@ def editar_protocolo(id):
         conexion.commit()
         conexion.close()
 
-        flash(
-            "Protocolo actualizado correctamente.",
-            "exito"
-        )
+
 
         return redirect(
             url_for("protocolos")
@@ -6082,7 +6714,7 @@ def editar_protocolo(id):
     "/protocolos/<int:id>/anular",
     methods=["POST"]
 )
-@login_required
+@cajero_required
 def anular_protocolo(id):
 
     conexion = conectar()
@@ -6155,10 +6787,7 @@ def anular_protocolo(id):
     conexion.close()
 
 
-    flash(
-        "Protocolo anulado correctamente.",
-        "exito"
-    )
+
 
     return redirect(
         url_for("protocolos")
@@ -6169,7 +6798,7 @@ def anular_protocolo(id):
     "/protocolos/<int:id>/reactivar",
     methods=["POST"]
 )
-@login_required
+@cajero_required
 def reactivar_protocolo(id):
 
     conexion = conectar()
@@ -6242,10 +6871,7 @@ def reactivar_protocolo(id):
     conexion.close()
 
 
-    flash(
-        "Protocolo reactivado correctamente.",
-        "exito"
-    )
+
 
     return redirect(
         url_for("protocolos")
@@ -6254,7 +6880,7 @@ def reactivar_protocolo(id):
 @app.route(
     "/protocolos/<int:id>/historial"
 )
-@login_required
+@cajero_required
 def historial_protocolo(id):
 
     conexion = conectar()
@@ -6325,7 +6951,7 @@ def historial_protocolo(id):
     )
 
 @app.route("/protocolos/exportar")
-@login_required
+@cajero_required
 def exportar_protocolos():
 
     conexion = conectar()
@@ -6661,7 +7287,7 @@ def exportar_protocolos():
     )
 
 @app.route("/administracion/categorias-socio")
-@login_required
+@cajero_required
 @admin_required
 def categorias_socio():
 
@@ -6688,7 +7314,7 @@ def categorias_socio():
     "/administracion/categorias-socio/nueva",
     methods=["GET", "POST"]
 )
-@login_required
+@cajero_required
 @admin_required
 def nueva_categoria_socio():
 
@@ -6749,10 +7375,7 @@ def nueva_categoria_socio():
         conexion.close()
 
 
-        flash(
-            "Categoría creada correctamente.",
-            "exito"
-        )
+
 
         return redirect(
             url_for("categorias_socio")
@@ -6768,7 +7391,7 @@ def nueva_categoria_socio():
     "/administracion/categorias-socio/<int:id>/editar",
     methods=["GET", "POST"]
 )
-@login_required
+@cajero_required
 @admin_required
 def editar_categoria_socio(id):
 
@@ -6858,10 +7481,7 @@ def editar_categoria_socio(id):
         conexion.close()
 
 
-        flash(
-            "Categoría actualizada correctamente.",
-            "exito"
-        )
+
 
         return redirect(
             url_for("categorias_socio")
@@ -6879,7 +7499,7 @@ def editar_categoria_socio(id):
 @app.post(
     "/administracion/categorias-socio/<int:id>/inactivar"
 )
-@login_required
+@cajero_required
 @admin_required
 def inactivar_categoria_socio(id):
 
@@ -6896,10 +7516,6 @@ def inactivar_categoria_socio(id):
     conexion.commit()
     conexion.close()
 
-    flash(
-        "Categoría inactivada correctamente.",
-        "exito"
-    )
 
     return redirect(
         url_for("categorias_socio")
@@ -6909,7 +7525,7 @@ def inactivar_categoria_socio(id):
 @app.post(
     "/administracion/categorias-socio/<int:id>/activar"
 )
-@login_required
+@cajero_required
 @admin_required
 def activar_categoria_socio(id):
 
@@ -6926,10 +7542,7 @@ def activar_categoria_socio(id):
     conexion.commit()
     conexion.close()
 
-    flash(
-        "Categoría activada correctamente.",
-        "exito"
-    )
+
 
     return redirect(
         url_for("categorias_socio")
@@ -6992,7 +7605,7 @@ def registrar_historial_nuevo_asociado(
     ))
 
 @app.route("/nuevos-asociados")
-@login_required
+@cajero_required
 def nuevos_asociados():
 
     conexion = conectar()
@@ -7184,7 +7797,7 @@ def nuevos_asociados():
     "/nuevos-asociados/nuevo",
     methods=["GET", "POST"]
 )
-@login_required
+@cajero_required
 def nuevo_asociado():
 
     conexion = conectar()
@@ -7486,10 +8099,7 @@ def nuevo_asociado():
         conexion.close()
 
 
-        flash(
-            "Nuevo asociado cargado correctamente.",
-            "exito"
-        )
+
 
 
         return redirect(
@@ -7515,7 +8125,7 @@ def nuevo_asociado():
 @app.post(
     "/nuevos-asociados/<int:id>/anular"
 )
-@login_required
+@cajero_required
 def anular_asociado(id):
 
     conexion = conectar()
@@ -7596,10 +8206,6 @@ def anular_asociado(id):
     conexion.close()
 
 
-    flash(
-        "Asociado anulado correctamente.",
-        "exito"
-    )
 
 
     return redirect(
@@ -7609,7 +8215,7 @@ def anular_asociado(id):
 @app.post(
     "/nuevos-asociados/<int:id>/reactivar"
 )
-@login_required
+@cajero_required
 def reactivar_asociado(id):
 
     conexion = conectar()
@@ -7690,10 +8296,6 @@ def reactivar_asociado(id):
     conexion.close()
 
 
-    flash(
-        "Asociado reactivado correctamente.",
-        "exito"
-    )
 
 
     return redirect(
@@ -7704,7 +8306,7 @@ def reactivar_asociado(id):
     "/nuevos-asociados/<int:id>/editar",
     methods=["GET", "POST"]
 )
-@login_required
+@cajero_required
 def editar_asociado(id):
 
     conexion = conectar()
@@ -8230,10 +8832,7 @@ def editar_asociado(id):
         conexion.close()
 
 
-        flash(
-            "Asociado actualizado correctamente.",
-            "exito"
-        )
+
 
         return redirect(
             url_for(
@@ -8259,7 +8858,7 @@ def editar_asociado(id):
 @app.route(
     "/nuevos-asociados/<int:id>/historial"
 )
-@login_required
+@cajero_required
 def historial_asociado(id):
 
     conexion = conectar()
@@ -8353,7 +8952,7 @@ def historial_asociado(id):
 @app.route(
     "/nuevos-asociados/exportar"
 )
-@login_required
+@cajero_required
 def exportar_nuevos_asociados():
 
     conexion = conectar()
@@ -8722,6 +9321,4016 @@ def exportar_nuevos_asociados():
             f"nuevos_asociados_"
             f"{fecha_archivo}.xlsx"
         ),
+        mimetype=(
+            "application/"
+            "vnd.openxmlformats-officedocument."
+            "spreadsheetml.sheet"
+        )
+    )
+
+
+@app.route("/recepcion/ingresos")
+@recepcion_required
+def ingresos():
+
+    conexion = conectar()
+
+    hoy = datetime.now(
+        ZoneInfo(
+            "America/Argentina/Buenos_Aires"
+        )
+    ).date().isoformat()
+
+
+    tours = {}
+
+
+    for circuito in (
+        "ESTADIO",
+        "TRIBUNA",
+        "MUSEO"
+    ):
+
+        # --------------------------------
+        # TOURS ABIERTOS
+        # --------------------------------
+
+        tours_abiertos = conexion.execute("""
+            SELECT
+                tours.id,
+                tours.fecha,
+                tours.hora,
+                tours.circuito,
+                tours.capacidad,
+                tours.estado,
+
+                COALESCE(
+                    SUM(ingresos.cantidad),
+                    0
+                ) AS total
+
+            FROM tours
+
+            LEFT JOIN ingresos
+                ON ingresos.tour_id = tours.id
+
+            WHERE tours.fecha = ?
+            AND tours.circuito = ?
+            AND tours.estado = 'ABIERTO'
+
+            GROUP BY
+                tours.id,
+                tours.fecha,
+                tours.hora,
+                tours.circuito,
+                tours.capacidad,
+                tours.estado
+
+            ORDER BY tours.hora
+        """, (
+            hoy,
+            circuito
+        )).fetchall()
+
+
+        # --------------------------------
+        # ULTIMO TOUR CERRADO
+        # --------------------------------
+
+        ultimo_cerrado = conexion.execute("""
+            SELECT
+                tours.id,
+                tours.fecha,
+                tours.hora,
+                tours.circuito,
+                tours.estado,
+
+                COALESCE(
+                    SUM(ingresos.cantidad),
+                    0
+                ) AS total
+
+            FROM tours
+
+            LEFT JOIN ingresos
+                ON ingresos.tour_id = tours.id
+
+            WHERE tours.fecha = ?
+            AND tours.circuito = ?
+            AND tours.estado = 'CERRADO'
+
+            GROUP BY
+                tours.id,
+                tours.fecha,
+                tours.hora,
+                tours.circuito,
+                tours.estado,
+                tours.cerrado_en
+
+            ORDER BY tours.cerrado_en DESC
+
+            LIMIT 1
+        """, (
+            hoy,
+            circuito
+        )).fetchone()
+
+
+        # --------------------------------
+        # TIPOS DE VISITA
+        # --------------------------------
+
+        tipos_visita = conexion.execute("""
+            SELECT
+                id,
+                nombre
+            FROM tipos_visita
+            WHERE estado = 'ACTIVO'
+            AND circuito_recepcion = ?
+            ORDER BY nombre
+        """, (
+            circuito,
+        )).fetchall()
+
+
+        # --------------------------------
+        # DATOS DEL CIRCUITO
+        # --------------------------------
+
+        tours[circuito] = {
+            "abiertos": tours_abiertos,
+            "ultimo_cerrado": ultimo_cerrado,
+            "tipos_visita": tipos_visita
+        }
+
+
+    conexion.close()
+
+
+    return render_template(
+        "recepcion/ingresos.html",
+        tours=tours
+    )
+
+@app.route(
+    "/recepcion/tours/abrir",
+    methods=["POST"]
+)
+@recepcion_required
+def abrir_tour():
+
+    circuito = request.form.get(
+        "circuito",
+        ""
+    ).strip().upper()
+
+    hora_ingresada = request.form.get(
+        "hora",
+        ""
+    ).strip()
+
+    capacidad = request.form.get(
+        "capacidad",
+        type=int
+    )
+
+
+    circuitos_validos = (
+        "ESTADIO",
+        "TRIBUNA",
+        "MUSEO"
+    )
+
+
+    # -----------------------------
+    # VALIDAR CIRCUITO
+    # -----------------------------
+
+    if circuito not in circuitos_validos:
+        abort(400)
+
+
+    # -----------------------------
+    # VALIDAR HORARIO
+    # -----------------------------
+
+    if circuito == "MUSEO":
+
+        hora = None
+
+    else:
+
+        if (
+            len(hora_ingresada) != 4
+            or not hora_ingresada.isdigit()
+        ):
+
+            flash(
+                "Ingresá el horario con 4 números. Ejemplo: 1100.",
+                "error"
+            )
+
+            return redirect(
+                url_for("ingresos")
+            )
+
+
+        horas = int(
+            hora_ingresada[:2]
+        )
+
+        minutos = int(
+            hora_ingresada[2:]
+        )
+
+
+        if (
+            horas > 23
+            or minutos > 59
+        ):
+
+            flash(
+                "El horario ingresado no es válido.",
+                "error"
+            )
+
+            return redirect(
+                url_for("ingresos")
+            )
+
+
+        hora = (
+            f"{horas:02d}:"
+            f"{minutos:02d}"
+        )
+
+
+    # -----------------------------
+    # FECHA Y HORA DE CREACIÓN
+    # -----------------------------
+
+    ahora = datetime.now(
+        ZoneInfo(
+            "America/Argentina/Buenos_Aires"
+        )
+    )
+
+    hoy = ahora.date().isoformat()
+
+    creado_en = ahora.strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
+
+
+    conexion = conectar()
+
+    # -----------------------------
+    # VERIFICAR CAPACIDAD
+    # -----------------------------
+
+    if circuito == "MUSEO":
+
+        capacidad = None
+
+    else:
+
+        if capacidad is None:
+            capacidad = 100
+
+        if capacidad <= 0:
+
+            flash(
+                "La capacidad debe ser mayor a 0.",
+                "error"
+            )
+
+            return redirect(
+                url_for("ingresos")
+            )
+
+    # -----------------------------
+    # VERIFICAR TOUR EXISTENTE
+    # -----------------------------
+
+    if circuito == "MUSEO":
+
+        tour_existente = conexion.execute("""
+            SELECT id
+            FROM tours
+            WHERE fecha = ?
+            AND circuito = 'MUSEO'
+            AND estado = 'ABIERTO'
+            LIMIT 1
+        """, (
+            hoy,
+        )).fetchone()
+
+    else:
+
+        tour_existente = conexion.execute("""
+            SELECT id
+            FROM tours
+            WHERE fecha = ?
+            AND circuito = ?
+            AND hora = ?
+            AND estado = 'ABIERTO'
+            LIMIT 1
+        """, (
+            hoy,
+            circuito,
+            hora
+        )).fetchone()
+
+
+    if tour_existente:
+
+        conexion.close()
+
+        if circuito == "MUSEO":
+
+            flash(
+                "El Museo ya está abierto.",
+                "error"
+            )
+
+        else:
+
+            flash(
+                "Ya existe un tour de ese circuito "
+                "con ese horario.",
+                "error"
+            )
+
+        return redirect(
+            url_for("ingresos")
+        )
+
+
+    # -----------------------------
+    # CREAR TOUR
+    # -----------------------------
+
+    conexion.execute("""
+        INSERT INTO tours (
+            fecha,
+            hora,
+            circuito,
+            capacidad,
+            estado,
+            creado_en
+        )
+        VALUES (?, ?, ?, ?, 'ABIERTO', ?)
+    """, (
+        hoy,
+        hora,
+        circuito,
+        capacidad,
+        creado_en
+    ))
+
+
+    conexion.commit()
+    conexion.close()
+
+
+    return redirect(
+        url_for("ingresos")
+    )
+
+@app.route(
+    "/recepcion/tours/<int:tour_id>/ingreso",
+    methods=["POST"]
+)
+@recepcion_required
+def registrar_ingreso_tour(tour_id):
+
+    usuario = obtener_usuario_actual()
+
+
+    cantidad = request.form.get(
+        "cantidad",
+        type=int
+    )
+
+
+    tipo_visita_id = request.form.get(
+        "tipo_visita_id",
+        type=int
+    )
+
+
+    # --------------------------------
+    # VALIDAR CANTIDAD
+    # --------------------------------
+
+    if cantidad is None or cantidad <= 0:
+
+        return {
+            "ok": False,
+            "error": "La cantidad debe ser mayor a 0."
+        }, 400
+
+
+    # --------------------------------
+    # VALIDAR TIPO DE VISITA
+    # --------------------------------
+
+    if tipo_visita_id is None:
+
+        return {
+            "ok": False,
+            "error": "Debe seleccionar un tipo de visita."
+        }, 400
+
+
+    conexion = conectar()
+
+
+    # --------------------------------
+    # OBTENER TOUR
+    # --------------------------------
+
+    tour = conexion.execute("""
+        SELECT
+            id,
+            circuito,
+            estado
+        FROM tours
+        WHERE id = ?
+    """, (
+        tour_id,
+    )).fetchone()
+
+
+    if tour is None:
+
+        conexion.close()
+
+        return {
+            "ok": False,
+            "error": "El tour no existe."
+        }, 404
+
+
+    if tour["estado"] != "ABIERTO":
+
+        conexion.close()
+
+        return {
+            "ok": False,
+            "error": "El tour ya está cerrado."
+        }, 400
+
+
+    # --------------------------------
+    # OBTENER TIPO DE VISITA
+    # --------------------------------
+
+    tipo_visita = conexion.execute("""
+        SELECT
+            id,
+            nombre,
+            circuito_recepcion,
+            estado
+        FROM tipos_visita
+        WHERE id = ?
+    """, (
+        tipo_visita_id,
+    )).fetchone()
+
+
+    if tipo_visita is None:
+
+        conexion.close()
+
+        return {
+            "ok": False,
+            "error": "El tipo de visita no existe."
+        }, 404
+
+
+    if tipo_visita["estado"] != "ACTIVO":
+
+        conexion.close()
+
+        return {
+            "ok": False,
+            "error": "Ese tipo de visita está inactivo."
+        }, 400
+
+
+    # --------------------------------
+    # VALIDAR CIRCUITO
+    # --------------------------------
+
+    if tipo_visita["circuito_recepcion"] is None:
+
+        conexion.close()
+
+        return {
+            "ok": False,
+            "error": (
+                "Ese tipo de visita no tiene "
+                "un circuito de recepción configurado."
+            )
+        }, 400
+
+
+    if (
+        tipo_visita["circuito_recepcion"]
+        != tour["circuito"]
+    ):
+
+        conexion.close()
+
+        return {
+            "ok": False,
+            "error": (
+                "Ese tipo de visita no corresponde "
+                "a este tour."
+            )
+        }, 400
+
+
+    # --------------------------------
+    # FECHA Y HORA
+    # --------------------------------
+
+    ahora = datetime.now(
+        ZoneInfo(
+            "America/Argentina/Buenos_Aires"
+        )
+    )
+
+
+    fecha = ahora.date().isoformat()
+
+
+    creado_en = ahora.strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
+
+
+    # --------------------------------
+    # REGISTRAR INGRESO
+    # --------------------------------
+
+    cursor = conexion.execute("""
+        INSERT INTO ingresos (
+            tour_id,
+            tipo_visita_id,
+            cantidad,
+            creado_en,
+            usuario_id
+        )
+        VALUES (?, ?, ?, ?, ?)
+    """, (
+        tour_id,
+        tipo_visita_id,
+        cantidad,
+        creado_en,
+        usuario["id"]
+    ))
+
+
+    ingreso_id = cursor.lastrowid
+
+
+    # --------------------------------
+    # HISTORIAL DE RECEPCIÓN
+    # --------------------------------
+
+    conexion.execute("""
+        INSERT INTO historial_recepcion (
+            fecha,
+            creado_en,
+            origen,
+            referencia_id,
+            tipo_visita_id,
+            cantidad,
+            destino,
+            tour_id,
+            usuario_id,
+            estado
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVO')
+    """, (
+        fecha,
+        creado_en,
+        "INGRESO",
+        ingreso_id,
+        tipo_visita_id,
+        cantidad,
+        "NORMAL",
+        tour_id,
+        usuario["id"]
+    ))
+
+    verificar_alertas_capacidad(
+        conexion,
+        tour_id,
+        creado_en
+    )
+
+
+    conexion.commit()
+
+
+    # --------------------------------
+    # TOTAL DEL TOUR
+    # --------------------------------
+
+    total = conexion.execute("""
+        SELECT
+            COALESCE(
+                SUM(cantidad),
+                0
+            ) AS total
+        FROM ingresos
+        WHERE tour_id = ?
+    """, (
+        tour_id,
+    )).fetchone()["total"]
+
+
+    conexion.close()
+
+
+    return {
+        "ok": True,
+        "total": total,
+        "tipo_visita": tipo_visita["nombre"]
+    }
+
+@app.route(
+    "/recepcion/tours/<int:tour_id>/cerrar",
+    methods=["POST"]
+)
+@recepcion_required
+def cerrar_tour(tour_id):
+
+    ahora = datetime.now(
+        ZoneInfo(
+            "America/Argentina/Buenos_Aires"
+        )
+    )
+
+    cerrado_en = ahora.strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
+
+
+    conexion = conectar()
+
+
+    tour = conexion.execute("""
+        SELECT
+            id,
+            circuito,
+            hora,
+            estado
+        FROM tours
+        WHERE id = ?
+    """, (
+        tour_id,
+    )).fetchone()
+
+
+    if tour is None:
+
+        conexion.close()
+        abort(404)
+
+
+    if tour["estado"] != "ABIERTO":
+
+        conexion.close()
+
+        flash(
+            "Ese tour ya está cerrado.",
+            "error"
+        )
+
+        return redirect(
+            url_for("ingresos")
+        )
+
+
+    conexion.execute("""
+        UPDATE tours
+        SET
+            estado = 'CERRADO',
+            cerrado_en = ?
+        WHERE id = ?
+    """, (
+        cerrado_en,
+        tour_id
+    ))
+
+    if tour["hora"]:
+
+        mensaje = (
+            f"Tour {tour['circuito']} "
+            f"{tour['hora']} cerrado."
+        )
+
+    else:
+
+        mensaje = (
+            f"{tour['circuito']} cerrado."
+        )
+
+
+    crear_alerta(
+        conexion,
+        "TOUR_CERRADO",
+        tour_id,
+        "CAJERO",
+        mensaje,
+        cerrado_en
+    )
+
+
+    conexion.commit()
+    conexion.close()
+
+
+
+
+    return redirect(
+        url_for("ingresos")
+    )
+
+
+@app.route(
+    "/recepcion/tours/<int:tour_id>/reabrir",
+    methods=["POST"]
+)
+@recepcion_required
+def reabrir_tour(tour_id):
+
+    conexion = conectar()
+
+
+    tour = conexion.execute("""
+        SELECT
+            id,
+            fecha,
+            hora,
+            circuito,
+            estado
+        FROM tours
+        WHERE id = ?
+    """, (
+        tour_id,
+    )).fetchone()
+
+
+    if tour is None:
+
+        conexion.close()
+        abort(404)
+
+
+    if tour["estado"] != "CERRADO":
+
+        conexion.close()
+
+        flash(
+            "Ese tour no está cerrado.",
+            "error"
+        )
+
+        return redirect(
+            url_for("ingresos")
+        )
+
+    conexion.execute("""
+        UPDATE tours
+        SET
+            estado = 'ABIERTO',
+            cerrado_en = NULL
+        WHERE id = ?
+    """, (
+        tour_id,
+    ))
+
+
+    conexion.commit()
+    conexion.close()
+
+
+
+
+
+    return redirect(
+        url_for("ingresos")
+    )
+
+@app.route(
+    "/recepcion/tours/<int:tour_id>/deshacer",
+    methods=["POST"]
+)
+@recepcion_required
+def deshacer_ultimo_ingreso(tour_id):
+
+    usuario = obtener_usuario_actual()
+
+    conexion = conectar()
+
+    tour = conexion.execute("""
+        SELECT
+            id,
+            estado
+        FROM tours
+        WHERE id = ?
+    """, (
+        tour_id,
+    )).fetchone()
+
+
+    if tour is None:
+
+        conexion.close()
+
+        return {
+            "ok": False,
+            "error": "El tour no existe."
+        }, 404
+
+
+    if tour["estado"] != "ABIERTO":
+
+        conexion.close()
+
+        return {
+            "ok": False,
+            "error": "El tour está cerrado."
+        }, 400
+
+
+    ultimo_ingreso = conexion.execute("""
+        SELECT
+            ingresos.id,
+            ingresos.cantidad,
+
+            tipos_visita.nombre
+                AS tipo_visita
+
+        FROM ingresos
+
+        JOIN tipos_visita
+            ON tipos_visita.id =
+            ingresos.tipo_visita_id
+
+        WHERE ingresos.tour_id = ?
+        AND ingresos.usuario_id = ?
+
+        ORDER BY ingresos.id DESC
+
+        LIMIT 1
+    """, (
+        tour_id,
+        usuario["id"]
+    )).fetchone()
+
+
+    if ultimo_ingreso is None:
+
+        conexion.close()
+
+        return {
+            "ok": False,
+            "error": "No hay cargas para deshacer."
+        }, 400
+
+
+    conexion.execute("""
+        DELETE FROM ingresos
+        WHERE id = ?
+    """, (
+        ultimo_ingreso["id"],
+    ))
+
+
+    conexion.commit()
+
+
+    total = conexion.execute("""
+        SELECT
+            COALESCE(
+                SUM(cantidad),
+                0
+            ) AS total
+        FROM ingresos
+        WHERE tour_id = ?
+    """, (
+        tour_id,
+    )).fetchone()["total"]
+
+
+    conexion.close()
+
+
+    return {
+        "ok": True,
+        "total": total,
+        "cantidad_eliminada": ultimo_ingreso["cantidad"],
+        "tipo_visita_eliminado": ultimo_ingreso["tipo_visita"]
+    }
+
+
+@app.route("/recepcion/protocolos")
+@recepcion_required
+def recepcion_protocolos():
+
+    ahora = datetime.now(
+        ZoneInfo(
+            "America/Argentina/Buenos_Aires"
+        )
+    )
+
+    hoy = ahora.date().isoformat()
+
+    conexion = conectar()
+
+
+    protocolos_db = conexion.execute("""
+        SELECT
+            protocolos.id,
+            protocolos.cantidad,
+            protocolos.descripcion,
+            protocolos.tipo_visita_id,
+
+            tipos_protocolo.nombre
+                AS tipo_protocolo,
+
+            tipos_visita.nombre
+                AS tipo_visita,
+
+            tipos_visita.circuito_recepcion
+                AS circuito_recepcion
+
+        FROM protocolos
+
+        JOIN tipos_protocolo
+            ON tipos_protocolo.id =
+               protocolos.tipo_protocolo_id
+
+        JOIN tipos_visita
+            ON tipos_visita.id =
+               protocolos.tipo_visita_id
+
+        WHERE protocolos.fecha = ?
+        AND protocolos.estado = 'ACTIVO'
+        AND protocolos.recepcion_estado = 'PENDIENTE'
+
+        ORDER BY protocolos.id
+    """, (
+        hoy,
+    )).fetchall()
+
+
+    protocolos = []
+
+
+    for protocolo in protocolos_db:
+
+        circuito = protocolo["circuito_recepcion"]
+
+        tours_abiertos = []
+
+
+        if circuito:
+
+            tours_abiertos = conexion.execute("""
+                SELECT
+                    tours.id,
+                    tours.hora,
+                    tours.circuito,
+
+                    COALESCE(
+                        SUM(ingresos.cantidad),
+                        0
+                    ) AS total
+
+                FROM tours
+
+                LEFT JOIN ingresos
+                    ON ingresos.tour_id =
+                       tours.id
+
+                WHERE tours.fecha = ?
+                AND tours.circuito = ?
+                AND tours.estado = 'ABIERTO'
+
+                GROUP BY
+                    tours.id,
+                    tours.hora,
+                    tours.circuito
+
+                ORDER BY tours.hora
+            """, (
+                hoy,
+                circuito
+            )).fetchall()
+
+
+        protocolos.append({
+
+            "id":
+                protocolo["id"],
+
+            "cantidad":
+                protocolo["cantidad"],
+
+            "descripcion":
+                protocolo["descripcion"],
+
+            "tipo_protocolo":
+                protocolo["tipo_protocolo"],
+
+            "tipo_visita_id":
+                protocolo["tipo_visita_id"],
+
+            "tipo_visita":
+                protocolo["tipo_visita"],
+
+            "circuito":
+                circuito,
+
+            "tours_abiertos":
+                tours_abiertos
+
+        })
+
+
+    conexion.close()
+
+
+    return render_template(
+        "recepcion/protocolos.html",
+        protocolos=protocolos
+    )
+
+@app.route(
+    "/recepcion/protocolos/<int:protocolo_id>/confirmar",
+    methods=["POST"]
+)
+@recepcion_required
+def confirmar_protocolo_recepcion(
+    protocolo_id
+):
+
+    usuario = obtener_usuario_actual()
+
+
+    destino = request.form.get(
+        "destino",
+        ""
+    ).strip().upper()
+
+
+    tour_id = request.form.get(
+        "tour_id",
+        type=int
+    )
+
+
+    if destino not in (
+        "NORMAL",
+        "PRIVADA"
+    ):
+
+        abort(400)
+
+
+    ahora = datetime.now(
+        ZoneInfo(
+            "America/Argentina/Buenos_Aires"
+        )
+    )
+
+    hoy = ahora.date().isoformat()
+
+    confirmado_en = ahora.strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
+
+
+    conexion = conectar()
+
+
+    # --------------------------------
+    # OBTENER PROTOCOLO
+    # --------------------------------
+
+    protocolo = conexion.execute("""
+        SELECT
+            protocolos.id,
+            protocolos.cantidad,
+            protocolos.tipo_visita_id,
+            protocolos.recepcion_estado,
+
+            tipos_visita.nombre
+                AS tipo_visita,
+
+            tipos_visita.circuito_recepcion
+                AS circuito_recepcion
+
+        FROM protocolos
+
+        JOIN tipos_visita
+            ON tipos_visita.id =
+               protocolos.tipo_visita_id
+
+        WHERE protocolos.id = ?
+        AND protocolos.estado = 'ACTIVO'
+    """, (
+        protocolo_id,
+    )).fetchone()
+
+
+    if protocolo is None:
+
+        conexion.close()
+        abort(404)
+
+
+    if (
+        protocolo["recepcion_estado"]
+        != "PENDIENTE"
+    ):
+
+        conexion.close()
+
+        flash(
+            "Ese protocolo ya fue confirmado.",
+            "error"
+        )
+
+        return redirect(
+            url_for(
+                "recepcion_protocolos"
+            )
+        )
+
+
+    # ====================================
+    # VISITA NORMAL
+    # ====================================
+
+    if destino == "NORMAL":
+
+        circuito = protocolo[
+            "circuito_recepcion"
+        ]
+
+
+        if circuito is None:
+
+            conexion.close()
+
+            flash(
+                "Este tipo de visita no tiene "
+                "un circuito de recepción configurado.",
+                "error"
+            )
+
+            return redirect(
+                url_for(
+                    "recepcion_protocolos"
+                )
+            )
+
+
+        if tour_id is None:
+
+            conexion.close()
+
+            flash(
+                "Seleccioná el tour al que "
+                "querés sumar el protocolo.",
+                "error"
+            )
+
+            return redirect(
+                url_for(
+                    "recepcion_protocolos"
+                )
+            )
+
+
+        # --------------------------------
+        # VALIDAR TOUR
+        # --------------------------------
+
+        tour = conexion.execute("""
+            SELECT
+                id,
+                fecha,
+                circuito,
+                estado
+            FROM tours
+            WHERE id = ?
+        """, (
+            tour_id,
+        )).fetchone()
+
+
+        if tour is None:
+
+            conexion.close()
+
+            flash(
+                "El tour seleccionado no existe.",
+                "error"
+            )
+
+            return redirect(
+                url_for(
+                    "recepcion_protocolos"
+                )
+            )
+
+
+        if (
+            tour["fecha"] != hoy
+            or tour["estado"] != "ABIERTO"
+            or tour["circuito"] != circuito
+        ):
+
+            conexion.close()
+
+            flash(
+                "El tour seleccionado "
+                "no es válido para este protocolo.",
+                "error"
+            )
+
+            return redirect(
+                url_for(
+                    "recepcion_protocolos"
+                )
+            )
+
+
+        # --------------------------------
+        # SUMAR AL TOUR
+        # --------------------------------
+
+        conexion.execute("""
+            INSERT INTO ingresos (
+                tour_id,
+                tipo_visita_id,
+                cantidad,
+                creado_en,
+                usuario_id
+            )
+            VALUES (?, ?, ?, ?, ?)
+        """, (
+            tour_id,
+            protocolo["tipo_visita_id"],
+            protocolo["cantidad"],
+            confirmado_en,
+            usuario["id"]
+        ))
+
+        verificar_alertas_capacidad(
+        conexion,
+        tour_id,
+        confirmado_en
+    )
+
+
+    # ====================================
+    # VISITA PRIVADA
+    # ====================================
+
+    else:
+
+        tour_id = None
+
+
+    # ====================================
+    # CONFIRMAR PROTOCOLO
+    # ====================================
+
+    conexion.execute("""
+        UPDATE protocolos
+        SET
+            recepcion_estado = 'CONFIRMADO',
+            destino = ?,
+            confirmado_en = ?,
+            confirmado_por = ?
+        WHERE id = ?
+    """, (
+        destino,
+        confirmado_en,
+        usuario["id"],
+        protocolo_id
+    ))
+
+
+    # ====================================
+    # HISTORIAL DE RECEPCIÓN
+    # ====================================
+
+    conexion.execute("""
+        INSERT INTO historial_recepcion (
+            fecha,
+            creado_en,
+            origen,
+            referencia_id,
+            tipo_visita_id,
+            cantidad,
+            destino,
+            tour_id,
+            usuario_id,
+            estado
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVO')
+    """, (
+        hoy,
+        confirmado_en,
+        "PROTOCOLO",
+        protocolo_id,
+        protocolo["tipo_visita_id"],
+        protocolo["cantidad"],
+        destino,
+        tour_id,
+        usuario["id"]
+    ))
+
+
+    conexion.commit()
+    conexion.close()
+
+
+
+
+
+    return redirect(
+        url_for(
+            "recepcion_protocolos"
+        )
+    )
+
+@app.route("/recepcion/grupos")
+@recepcion_required
+def recepcion_grupos():
+
+    ahora = datetime.now(
+        ZoneInfo(
+            "America/Argentina/Buenos_Aires"
+        )
+    )
+
+    hoy = ahora.date().isoformat()
+
+    conexion = conectar()
+
+
+    # --------------------------------
+    # TIPOS DE VISITA ACTIVOS
+    # --------------------------------
+
+    tipos_visita = conexion.execute("""
+        SELECT
+            id,
+            nombre,
+            circuito_recepcion
+        FROM tipos_visita
+        WHERE estado = 'ACTIVO'
+        ORDER BY nombre
+    """).fetchall()
+
+
+    # --------------------------------
+    # TOURS ABIERTOS DEL DÍA
+    # --------------------------------
+
+    tours_abiertos = conexion.execute("""
+        SELECT
+            tours.id,
+            tours.hora,
+            tours.circuito,
+
+            COALESCE(
+                SUM(ingresos.cantidad),
+                0
+            ) AS total
+
+        FROM tours
+
+        LEFT JOIN ingresos
+            ON ingresos.tour_id =
+               tours.id
+
+        WHERE tours.fecha = ?
+        AND tours.estado = 'ABIERTO'
+
+        GROUP BY
+            tours.id,
+            tours.hora,
+            tours.circuito
+
+        ORDER BY
+            tours.circuito,
+            tours.hora
+    """, (
+        hoy,
+    )).fetchall()
+
+
+    conexion.close()
+
+
+    return render_template(
+        "recepcion/grupos.html",
+        tipos_visita=tipos_visita,
+        tours_abiertos=tours_abiertos
+    )
+
+@app.route(
+    "/recepcion/grupos/registrar",
+    methods=["POST"]
+)
+@recepcion_required
+def registrar_grupo():
+
+    usuario = obtener_usuario_actual()
+
+
+    cantidad = request.form.get(
+        "cantidad",
+        type=int
+    )
+
+
+    tipo_visita_id = request.form.get(
+        "tipo_visita_id",
+        type=int
+    )
+
+
+    destino = request.form.get(
+        "destino",
+        ""
+    ).strip().upper()
+
+
+    tour_id = request.form.get(
+        "tour_id",
+        type=int
+    )
+
+
+    # --------------------------------
+    # VALIDACIONES BÁSICAS
+    # --------------------------------
+
+    if cantidad is None or cantidad <= 0:
+
+        flash(
+            "La cantidad debe ser mayor a 0.",
+            "error"
+        )
+
+        return redirect(
+            url_for("recepcion_grupos")
+        )
+
+
+    if tipo_visita_id is None:
+
+        flash(
+            "Debe seleccionar un tipo de visita.",
+            "error"
+        )
+
+        return redirect(
+            url_for("recepcion_grupos")
+        )
+
+
+    if destino not in (
+        "NORMAL",
+        "PRIVADA"
+    ):
+
+        flash(
+            "Debe seleccionar cómo ingresa el grupo.",
+            "error"
+        )
+
+        return redirect(
+            url_for("recepcion_grupos")
+        )
+
+
+    # --------------------------------
+    # FECHA Y HORA
+    # --------------------------------
+
+    ahora = datetime.now(
+        ZoneInfo(
+            "America/Argentina/Buenos_Aires"
+        )
+    )
+
+
+    fecha = ahora.date().isoformat()
+
+
+    creado_en = ahora.strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
+
+
+    conexion = conectar()
+
+
+    # --------------------------------
+    # TIPO DE VISITA
+    # --------------------------------
+
+    tipo_visita = conexion.execute("""
+        SELECT
+            id,
+            nombre,
+            circuito_recepcion,
+            estado
+        FROM tipos_visita
+        WHERE id = ?
+    """, (
+        tipo_visita_id,
+    )).fetchone()
+
+
+    if tipo_visita is None:
+
+        conexion.close()
+
+        flash(
+            "El tipo de visita no existe.",
+            "error"
+        )
+
+        return redirect(
+            url_for("recepcion_grupos")
+        )
+
+
+    if tipo_visita["estado"] != "ACTIVO":
+
+        conexion.close()
+
+        flash(
+            "Ese tipo de visita está inactivo.",
+            "error"
+        )
+
+        return redirect(
+            url_for("recepcion_grupos")
+        )
+
+
+    # ====================================
+    # GRUPO NORMAL
+    # ====================================
+
+    if destino == "NORMAL":
+
+        circuito = tipo_visita[
+            "circuito_recepcion"
+        ]
+
+
+        if circuito is None:
+
+            conexion.close()
+
+            flash(
+                "Ese tipo de visita no tiene "
+                "un circuito de recepción configurado.",
+                "error"
+            )
+
+            return redirect(
+                url_for("recepcion_grupos")
+            )
+
+
+        if tour_id is None:
+
+            conexion.close()
+
+            flash(
+                "Debe seleccionar un tour.",
+                "error"
+            )
+
+            return redirect(
+                url_for("recepcion_grupos")
+            )
+
+
+        # --------------------------------
+        # VALIDAR TOUR
+        # --------------------------------
+
+        tour = conexion.execute("""
+            SELECT
+                id,
+                fecha,
+                circuito,
+                estado
+            FROM tours
+            WHERE id = ?
+        """, (
+            tour_id,
+        )).fetchone()
+
+
+        if tour is None:
+
+            conexion.close()
+
+            flash(
+                "El tour seleccionado no existe.",
+                "error"
+            )
+
+            return redirect(
+                url_for("recepcion_grupos")
+            )
+
+
+        if (
+            tour["fecha"] != fecha
+            or tour["estado"] != "ABIERTO"
+            or tour["circuito"] != circuito
+        ):
+
+            conexion.close()
+
+            flash(
+                "El tour seleccionado no corresponde "
+                "al tipo de visita.",
+                "error"
+            )
+
+            return redirect(
+                url_for("recepcion_grupos")
+            )
+
+
+        # --------------------------------
+        # GUARDAR GRUPO
+        # --------------------------------
+
+        cursor = conexion.execute("""
+            INSERT INTO grupos (
+                fecha,
+                cantidad,
+                tipo_visita_id,
+                destino,
+                tour_id,
+                creado_en,
+                usuario_id,
+                estado
+            )
+            VALUES (?, ?, ?, 'NORMAL', ?, ?, ?, 'ACTIVO')
+        """, (
+            fecha,
+            cantidad,
+            tipo_visita_id,
+            tour_id,
+            creado_en,
+            usuario["id"]
+        ))
+
+
+
+        grupo_id = cursor.lastrowid
+
+
+        # --------------------------------
+        # SUMAR PERSONAS AL TOUR
+        # --------------------------------
+
+        conexion.execute("""
+            INSERT INTO ingresos (
+                tour_id,
+                tipo_visita_id,
+                cantidad,
+                creado_en,
+                usuario_id
+            )
+            VALUES (?, ?, ?, ?, ?)
+        """, (
+            tour_id,
+            tipo_visita_id,
+            cantidad,
+            creado_en,
+            usuario["id"]
+        ))
+
+        verificar_alertas_capacidad(
+        conexion,
+        tour_id,
+        creado_en
+    )
+
+
+    # ====================================
+    # GRUPO PRIVADO
+    # ====================================
+
+    else:
+
+        cursor = conexion.execute("""
+            INSERT INTO grupos (
+                fecha,
+                cantidad,
+                tipo_visita_id,
+                destino,
+                tour_id,
+                creado_en,
+                usuario_id,
+                estado
+            )
+            VALUES (?, ?, ?, 'PRIVADA', NULL, ?, ?, 'ACTIVO')
+        """, (
+            fecha,
+            cantidad,
+            tipo_visita_id,
+            creado_en,
+            usuario["id"]
+        ))
+
+
+        grupo_id = cursor.lastrowid
+
+
+        # Las visitas privadas no pertenecen
+        # a ningún tour normal.
+
+        tour_id = None
+
+
+    # ====================================
+    # HISTORIAL DE RECEPCIÓN
+    # ====================================
+
+    conexion.execute("""
+        INSERT INTO historial_recepcion (
+            fecha,
+            creado_en,
+            origen,
+            referencia_id,
+            tipo_visita_id,
+            cantidad,
+            destino,
+            tour_id,
+            usuario_id,
+            estado
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVO')
+    """, (
+        fecha,
+        creado_en,
+        "GRUPO",
+        grupo_id,
+        tipo_visita_id,
+        cantidad,
+        destino,
+        tour_id,
+        usuario["id"]
+    ))
+
+
+    conexion.commit()
+    conexion.close()
+
+
+
+
+    return redirect(
+        url_for("recepcion_grupos")
+    )
+
+@app.route("/recepcion/historial")
+@recepcion_required
+def historial_recepcion():
+
+    ahora = datetime.now(
+        ZoneInfo(
+            "America/Argentina/Buenos_Aires"
+        )
+    )
+
+    hoy = ahora.date().isoformat()
+
+
+    # ====================================
+    # FILTROS
+    # ====================================
+
+    fecha_desde = request.args.get(
+        "fecha_desde",
+        hoy
+    )
+
+    fecha_hasta = request.args.get(
+        "fecha_hasta",
+        hoy
+    )
+
+    tour_id = request.args.get(
+        "tour_id",
+        ""
+    )
+
+    origen = request.args.get(
+        "origen",
+        ""
+    ).strip().upper()
+
+    tipo_visita_id = request.args.get(
+        "tipo_visita_id",
+        ""
+    )
+
+    destino = request.args.get(
+        "destino",
+        ""
+    ).strip().upper()
+
+    usuario_id = request.args.get(
+        "usuario_id",
+        ""
+    )
+
+    estado = request.args.get(
+        "estado",
+        ""
+    ).strip().upper()
+
+
+    condiciones = []
+    parametros = []
+
+
+    if fecha_desde:
+
+        condiciones.append(
+            "historial_recepcion.fecha >= ?"
+        )
+
+        parametros.append(
+            fecha_desde
+        )
+
+
+    if fecha_hasta:
+
+        condiciones.append(
+            "historial_recepcion.fecha <= ?"
+        )
+
+        parametros.append(
+            fecha_hasta
+        )
+
+    if tour_id:
+
+        condiciones.append(
+            "historial_recepcion.tour_id = ?"
+        )
+
+        parametros.append(
+            tour_id
+        )
+
+    if origen:
+
+        condiciones.append(
+            "historial_recepcion.origen = ?"
+        )
+
+        parametros.append(
+            origen
+        )
+
+
+    if tipo_visita_id:
+
+        condiciones.append(
+            "historial_recepcion.tipo_visita_id = ?"
+        )
+
+        parametros.append(
+            tipo_visita_id
+        )
+
+
+    if destino:
+
+        condiciones.append(
+            "historial_recepcion.destino = ?"
+        )
+
+        parametros.append(
+            destino
+        )
+
+
+    if usuario_id:
+
+        condiciones.append(
+            "historial_recepcion.usuario_id = ?"
+        )
+
+        parametros.append(
+            usuario_id
+        )
+
+
+    if estado:
+
+        condiciones.append(
+            "historial_recepcion.estado = ?"
+        )
+
+        parametros.append(
+            estado
+        )
+
+
+    where_sql = ""
+
+    if condiciones:
+
+        where_sql = (
+            "WHERE "
+            + " AND ".join(condiciones)
+        )
+
+
+    conexion = conectar()
+
+
+    # ====================================
+    # HISTORIAL
+    # ====================================
+
+    historial = conexion.execute(
+        f"""
+        SELECT
+            historial_recepcion.id,
+            historial_recepcion.fecha,
+            historial_recepcion.creado_en,
+            historial_recepcion.origen,
+            historial_recepcion.referencia_id,
+            historial_recepcion.cantidad,
+            historial_recepcion.destino,
+            historial_recepcion.estado,
+
+            tipos_visita.nombre
+                AS tipo_visita,
+
+            tours.id
+                AS tour_id,
+
+            tours.hora
+                AS tour_hora,
+
+            tours.circuito
+                AS tour_circuito,
+
+            usuarios.nombre
+                AS usuario_nombre,
+
+            diferencia_origen.nombre
+                AS diferencia_origen,
+
+            diferencia_destino.nombre
+                AS diferencia_destino
+
+        FROM historial_recepcion
+
+        JOIN tipos_visita
+            ON tipos_visita.id =
+            historial_recepcion.tipo_visita_id
+
+        LEFT JOIN tours
+            ON tours.id =
+            historial_recepcion.tour_id
+
+        JOIN usuarios
+            ON usuarios.id =
+            historial_recepcion.usuario_id
+
+        LEFT JOIN diferencias
+            ON historial_recepcion.origen =
+            'DIFERENCIA'
+
+            AND diferencias.id =
+                historial_recepcion.referencia_id
+
+        LEFT JOIN tipos_visita
+            AS diferencia_origen
+
+            ON diferencia_origen.id =
+            diferencias.tipo_visita_origen_id
+
+        LEFT JOIN tipos_visita
+            AS diferencia_destino
+
+            ON diferencia_destino.id =
+            diferencias.tipo_visita_destino_id
+
+        {where_sql}
+
+        ORDER BY
+            historial_recepcion.creado_en DESC,
+            historial_recepcion.id DESC
+        """,
+        parametros
+    ).fetchall()
+
+    # ====================================
+    # FINALES DE TOURS CERRADOS
+    # ====================================
+
+    filas_finales = conexion.execute("""
+        SELECT
+            tours.id AS tour_id,
+            tours.fecha,
+            tours.hora,
+            tours.circuito,
+            tours.capacidad,
+            tours.cerrado_en,
+
+            tipos_visita.id
+                AS tipo_visita_id,
+
+            tipos_visita.nombre
+                AS tipo_visita,
+
+            COALESCE(
+                SUM(ingresos.cantidad),
+                0
+            ) AS cantidad
+
+        FROM tours
+
+        LEFT JOIN ingresos
+            ON ingresos.tour_id =
+            tours.id
+
+        LEFT JOIN tipos_visita
+            ON tipos_visita.id =
+            ingresos.tipo_visita_id
+
+        WHERE tours.estado = 'CERRADO'
+
+        AND tours.fecha >= ?
+        AND tours.fecha <= ?
+
+        GROUP BY
+            tours.id,
+            tours.fecha,
+            tours.hora,
+            tours.circuito,
+            tours.capacidad,
+            tours.cerrado_en,
+            tipos_visita.id,
+            tipos_visita.nombre
+
+        ORDER BY
+            tours.fecha DESC,
+            tours.hora DESC,
+            tours.id DESC,
+            tipos_visita.nombre
+    """, (
+        fecha_desde,
+        fecha_hasta
+    )).fetchall()
+
+
+    finales_diccionario = {}
+
+
+    for fila in filas_finales:
+
+        tour_id_final = fila["tour_id"]
+
+
+        if (
+            tour_id_final
+            not in finales_diccionario
+        ):
+
+            finales_diccionario[
+                tour_id_final
+            ] = {
+                "id": tour_id_final,
+                "fecha": fila["fecha"],
+                "hora": fila["hora"],
+                "circuito": fila["circuito"],
+                "capacidad": fila["capacidad"],
+                "cerrado_en": fila["cerrado_en"],
+                "tipos": [],
+                "total": 0
+            }
+
+
+        if fila["tipo_visita"]:
+
+            cantidad_final = (
+                fila["cantidad"] or 0
+            )
+
+
+            finales_diccionario[
+                tour_id_final
+            ]["tipos"].append({
+                "nombre":
+                    fila["tipo_visita"],
+
+                "cantidad":
+                    cantidad_final
+            })
+
+
+            finales_diccionario[
+                tour_id_final
+            ]["total"] += cantidad_final
+
+
+    finales_tours = list(
+        finales_diccionario.values()
+    )
+
+    # ====================================
+    # TOTALES POR TIPO DE VISITA
+    # ====================================
+
+    totales_por_tipo = {}
+
+
+    for fila in filas_finales:
+
+        tipo = fila["tipo_visita"]
+
+
+        if not tipo:
+            continue
+
+
+        if tipo not in totales_por_tipo:
+
+            totales_por_tipo[tipo] = 0
+
+
+        totales_por_tipo[tipo] += (
+            fila["cantidad"] or 0
+        )
+
+
+    resumen_tipos = []
+
+
+    for tipo, cantidad in sorted(
+        totales_por_tipo.items()
+    ):
+
+        resumen_tipos.append({
+            "nombre": tipo,
+            "cantidad": cantidad
+        })
+
+
+    total_final_general = sum(
+        item["cantidad"]
+        for item in resumen_tipos
+    )
+
+
+    # ====================================
+    # OPCIONES DE FILTROS
+    # ====================================
+
+    tipos_visita = conexion.execute("""
+        SELECT
+            id,
+            nombre,
+            circuito_recepcion
+        FROM tipos_visita
+        ORDER BY nombre
+    """).fetchall()
+
+
+    usuarios = conexion.execute("""
+        SELECT
+            id,
+            nombre
+        FROM usuarios
+        ORDER BY nombre
+    """).fetchall()
+
+
+    tours_filtro = conexion.execute("""
+        SELECT
+            id,
+            fecha,
+            hora,
+            circuito
+        FROM tours
+        WHERE fecha >= ?
+        AND fecha <= ?
+        ORDER BY
+            fecha DESC,
+            circuito,
+            hora
+    """, (
+        fecha_desde,
+        fecha_hasta
+    )).fetchall()
+
+
+    conexion.close()
+
+
+    return render_template(
+        "recepcion/historial.html",
+
+        historial=historial,
+
+        tipos_visita=tipos_visita,
+        usuarios=usuarios,
+        tours_filtro=tours_filtro,
+
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta,
+        origen=origen,
+        tipo_visita_id=tipo_visita_id,
+        destino=destino,
+        usuario_id=usuario_id,
+        estado=estado,
+        tour_id=tour_id,
+        resumen_tipos=resumen_tipos,
+        total_final_general=total_final_general,
+        finales_tours=finales_tours
+    )
+
+@app.route("/recepcion/historial/exportar")
+@recepcion_required
+def exportar_historial_recepcion():
+
+    ahora = datetime.now(
+        ZoneInfo(
+            "America/Argentina/Buenos_Aires"
+        )
+    )
+
+    hoy = ahora.date().isoformat()
+
+
+    # ====================================
+    # FILTROS
+    # ====================================
+
+    fecha_desde = request.args.get(
+        "fecha_desde",
+        hoy
+    )
+
+    fecha_hasta = request.args.get(
+        "fecha_hasta",
+        hoy
+    )
+
+    origen = request.args.get(
+        "origen",
+        ""
+    ).strip().upper()
+
+    tipo_visita_id = request.args.get(
+        "tipo_visita_id",
+        ""
+    )
+
+    destino = request.args.get(
+        "destino",
+        ""
+    ).strip().upper()
+
+    usuario_id = request.args.get(
+        "usuario_id",
+        ""
+    )
+
+    estado = request.args.get(
+        "estado",
+        ""
+    ).strip().upper()
+
+    tour_id = request.args.get(
+        "tour_id",
+        ""
+    )
+
+
+    # ====================================
+    # ARMAR FILTROS SQL
+    # ====================================
+
+    condiciones = []
+    parametros = []
+
+
+    if fecha_desde:
+
+        condiciones.append(
+            "historial_recepcion.fecha >= ?"
+        )
+
+        parametros.append(
+            fecha_desde
+        )
+
+
+    if fecha_hasta:
+
+        condiciones.append(
+            "historial_recepcion.fecha <= ?"
+        )
+
+        parametros.append(
+            fecha_hasta
+        )
+
+
+    if origen:
+
+        condiciones.append(
+            "historial_recepcion.origen = ?"
+        )
+
+        parametros.append(
+            origen
+        )
+
+
+    if tipo_visita_id:
+
+        condiciones.append(
+            "historial_recepcion.tipo_visita_id = ?"
+        )
+
+        parametros.append(
+            tipo_visita_id
+        )
+
+
+    if destino:
+
+        condiciones.append(
+            "historial_recepcion.destino = ?"
+        )
+
+        parametros.append(
+            destino
+        )
+
+
+    if usuario_id:
+
+        condiciones.append(
+            "historial_recepcion.usuario_id = ?"
+        )
+
+        parametros.append(
+            usuario_id
+        )
+
+
+    if estado:
+
+        condiciones.append(
+            "historial_recepcion.estado = ?"
+        )
+
+        parametros.append(
+            estado
+        )
+
+
+    if tour_id:
+
+        condiciones.append(
+            "historial_recepcion.tour_id = ?"
+        )
+
+        parametros.append(
+            tour_id
+        )
+
+
+    where_sql = ""
+
+    if condiciones:
+
+        where_sql = (
+            "WHERE "
+            + " AND ".join(condiciones)
+        )
+
+
+    # ====================================
+    # CONSULTAR DATOS
+    # ====================================
+
+    conexion = conectar()
+
+
+    registros = conexion.execute(
+        f"""
+        SELECT
+            historial_recepcion.fecha,
+            historial_recepcion.creado_en,
+            historial_recepcion.origen,
+            historial_recepcion.cantidad,
+            historial_recepcion.destino,
+            historial_recepcion.estado,
+
+            tipos_visita.nombre
+                AS tipo_visita,
+
+            tours.hora
+                AS tour_hora,
+
+            tours.circuito
+                AS tour_circuito,
+
+            usuarios.nombre
+                AS usuario_nombre
+
+        FROM historial_recepcion
+
+        JOIN tipos_visita
+            ON tipos_visita.id =
+               historial_recepcion.tipo_visita_id
+
+        LEFT JOIN tours
+            ON tours.id =
+               historial_recepcion.tour_id
+
+        JOIN usuarios
+            ON usuarios.id =
+               historial_recepcion.usuario_id
+
+        {where_sql}
+
+        ORDER BY
+            historial_recepcion.creado_en,
+            historial_recepcion.id
+        """,
+        parametros
+    ).fetchall()
+
+
+    conexion.close()
+
+
+    # ====================================
+    # CREAR EXCEL
+    # ====================================
+
+    libro = Workbook()
+
+    hoja = libro.active
+    hoja.title = "Historial Recepción"
+
+
+    encabezados = [
+        "Fecha",
+        "Hora",
+        "Origen",
+        "Cantidad",
+        "Tipo de visita",
+        "Destino",
+        "Circuito",
+        "Horario tour",
+        "Usuario",
+        "Estado"
+    ]
+
+
+    hoja.append(
+        encabezados
+    )
+
+
+    # ====================================
+    # ESTILO ENCABEZADO
+    # ====================================
+
+    relleno_rojo = PatternFill( 
+        fill_type="solid",
+        fgColor="E30613",
+    )
+
+    fuente_blanca = Font(
+        color="FFFFFF",
+        bold=True
+    )
+
+
+    for celda in hoja[1]:
+
+        celda.fill = relleno_rojo
+        celda.font = fuente_blanca
+
+        celda.alignment = Alignment(
+            horizontal="center",
+            vertical="center"
+        )
+
+
+    # ====================================
+    # CARGAR REGISTROS
+    # ====================================
+
+    for registro in registros:
+
+        fecha = registro["fecha"]
+
+        hora = registro[
+            "creado_en"
+        ][11:16]
+
+
+        if registro["tour_circuito"]:
+
+            circuito = registro[
+                "tour_circuito"
+            ]
+
+        else:
+
+            circuito = "-"
+
+
+        if registro["tour_hora"]:
+
+            horario_tour = registro[
+                "tour_hora"
+            ]
+
+        elif (
+            registro["tour_circuito"]
+            == "MUSEO"
+        ):
+
+            horario_tour = "MUSEO"
+
+        else:
+
+            horario_tour = "-"
+
+
+        hoja.append([
+            fecha,
+            hora,
+            registro["origen"],
+            registro["cantidad"],
+            registro["tipo_visita"],
+            registro["destino"],
+            circuito,
+            horario_tour,
+            registro["usuario_nombre"],
+            registro["estado"]
+        ])
+
+
+    # ====================================
+    # FORMATO
+    # ====================================
+
+    hoja.freeze_panes = "A2"
+
+
+    if hoja.max_row > 1:
+
+        hoja.auto_filter.ref = (
+            f"A1:J{hoja.max_row}"
+        )
+
+
+    anchos = {
+        "A": 14,
+        "B": 10,
+        "C": 16,
+        "D": 12,
+        "E": 22,
+        "F": 14,
+        "G": 16,
+        "H": 16,
+        "I": 22,
+        "J": 14
+    }
+
+
+    for columna, ancho in anchos.items():
+
+        hoja.column_dimensions[
+            columna
+        ].width = ancho
+
+
+    for fila in hoja.iter_rows(
+        min_row=2
+    ):
+
+        fila[3].alignment = Alignment(
+            horizontal="center"
+        )
+
+
+    # ====================================
+    # GUARDAR EN MEMORIA
+    # ====================================
+
+    archivo = BytesIO()
+
+    libro.save(
+        archivo
+    )
+
+    archivo.seek(0)
+
+
+    # ====================================
+    # NOMBRE ARCHIVO
+    # ====================================
+
+    if fecha_desde == fecha_hasta:
+
+        nombre_archivo = (
+            f"historial_recepcion_"
+            f"{fecha_desde}.xlsx"
+        )
+
+    else:
+
+        nombre_archivo = (
+            f"historial_recepcion_"
+            f"{fecha_desde}_a_"
+            f"{fecha_hasta}.xlsx"
+        )
+
+
+    return send_file(
+        archivo,
+        as_attachment=True,
+        download_name=nombre_archivo,
+        mimetype=(
+            "application/"
+            "vnd.openxmlformats-officedocument."
+            "spreadsheetml.sheet"
+        )
+    )
+
+
+@app.route("/alertas/pendiente")
+@login_required
+def alerta_pendiente():
+
+    usuario = obtener_usuario_actual()
+
+
+    # Por ahora las alertas automáticas
+    # están dirigidas a CAJERO.
+    # RECEPCION queda preparado para usarlo
+    # más adelante.
+
+    if usuario["rol"] not in (
+        "CAJERO",
+        "RECEPCION"
+    ):
+
+        return {
+            "ok": True,
+            "alerta": None
+        }
+
+
+    conexion = conectar()
+
+
+    alerta = conexion.execute("""
+        SELECT
+            alertas.id,
+            alertas.tipo,
+            alertas.mensaje,
+            alertas.creado_en
+
+        FROM alertas
+
+        WHERE alertas.destinatario_rol = ?
+
+        AND NOT EXISTS (
+
+            SELECT 1
+
+            FROM alertas_leidas
+
+            WHERE alertas_leidas.alerta_id =
+                  alertas.id
+
+            AND alertas_leidas.usuario_id = ?
+
+        )
+
+        ORDER BY
+            alertas.creado_en ASC,
+            alertas.id ASC
+
+        LIMIT 1
+    """, (
+        usuario["rol"],
+        usuario["id"]
+    )).fetchone()
+
+
+    conexion.close()
+
+
+    if alerta is None:
+
+        return {
+            "ok": True,
+            "alerta": None
+        }
+
+
+    return {
+        "ok": True,
+
+        "alerta": {
+            "id": alerta["id"],
+            "tipo": alerta["tipo"],
+            "mensaje": alerta["mensaje"],
+            "creado_en": alerta["creado_en"]
+        }
+    }
+
+@app.route(
+    "/alertas/<int:alerta_id>/entendido",
+    methods=["POST"]
+)
+@login_required
+def alerta_entendida(alerta_id):
+
+    usuario = obtener_usuario_actual()
+
+
+    ahora = datetime.now(
+        ZoneInfo(
+            "America/Argentina/Buenos_Aires"
+        )
+    )
+
+    leida_en = ahora.strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
+
+
+    conexion = conectar()
+
+
+    alerta = conexion.execute("""
+        SELECT
+            id,
+            destinatario_rol
+        FROM alertas
+        WHERE id = ?
+    """, (
+        alerta_id,
+    )).fetchone()
+
+
+    if alerta is None:
+
+        conexion.close()
+
+        return {
+            "ok": False,
+            "error": "La alerta no existe."
+        }, 404
+
+
+    if (
+        alerta["destinatario_rol"]
+        != usuario["rol"]
+    ):
+
+        conexion.close()
+
+        return {
+            "ok": False,
+            "error": "La alerta no corresponde a este usuario."
+        }, 403
+
+
+    conexion.execute("""
+        INSERT OR IGNORE INTO alertas_leidas (
+            alerta_id,
+            usuario_id,
+            leida_en
+        )
+        VALUES (?, ?, ?)
+    """, (
+        alerta_id,
+        usuario["id"],
+        leida_en
+    ))
+
+
+    conexion.commit()
+    conexion.close()
+
+
+    return {
+        "ok": True
+    }
+
+
+@app.route(
+    "/diferencias",
+    methods=["GET", "POST"]
+)
+@cajero_required
+def diferencias():
+
+    usuario = obtener_usuario_actual()
+
+    ahora = datetime.now(
+        ZoneInfo(
+            "America/Argentina/Buenos_Aires"
+        )
+    )
+
+    hoy = ahora.date().isoformat()
+
+    creado_en = ahora.strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
+
+
+    conexion = conectar()
+
+
+    # ====================================
+    # TIPOS DISPONIBLES
+    # ====================================
+
+    tipos_visita = conexion.execute("""
+        SELECT
+            id,
+            nombre,
+            circuito_recepcion
+
+        FROM tipos_visita
+
+        WHERE estado = 'ACTIVO'
+
+        AND circuito_recepcion
+            IS NOT NULL
+
+        ORDER BY nombre
+    """).fetchall()
+
+
+    # ====================================
+    # GUARDAR DIFERENCIA
+    # ====================================
+
+    if request.method == "POST":
+
+        tipo_origen_id = request.form.get(
+            "tipo_visita_origen_id",
+            ""
+        )
+
+        tipo_destino_id = request.form.get(
+            "tipo_visita_destino_id",
+            ""
+        )
+
+        cantidad_texto = request.form.get(
+            "cantidad",
+            ""
+        ).strip()
+
+        descripcion = texto_mayusculas(
+            request.form.get(
+                "descripcion",
+                ""
+            )
+        )
+
+
+        try:
+
+            cantidad = int(
+                cantidad_texto
+            )
+
+        except ValueError:
+
+            cantidad = 0
+
+
+        if cantidad <= 0:
+
+            conexion.close()
+
+            flash(
+                "La cantidad debe ser mayor a 0.",
+                "error"
+            )
+
+            return redirect(
+                url_for("diferencias")
+            )
+
+
+        if (
+            not tipo_origen_id
+            or not tipo_destino_id
+        ):
+
+            conexion.close()
+
+            flash(
+                "Seleccioná el tipo de visita "
+                "de origen y destino.",
+                "error"
+            )
+
+            return redirect(
+                url_for("diferencias")
+            )
+
+
+        if (
+            tipo_origen_id
+            == tipo_destino_id
+        ):
+
+            conexion.close()
+
+            flash(
+                "El tipo de origen y destino "
+                "no pueden ser iguales.",
+                "error"
+            )
+
+            return redirect(
+                url_for("diferencias")
+            )
+
+
+        # --------------------------------
+        # VALIDAR ORIGEN
+        # --------------------------------
+
+        tipo_origen = conexion.execute("""
+            SELECT
+                id,
+                nombre,
+                circuito_recepcion
+
+            FROM tipos_visita
+
+            WHERE id = ?
+
+            AND estado = 'ACTIVO'
+
+            AND circuito_recepcion
+                IS NOT NULL
+        """, (
+            tipo_origen_id,
+        )).fetchone()
+
+
+        if tipo_origen is None:
+
+            conexion.close()
+
+            flash(
+                "El tipo de visita de origen "
+                "no es válido.",
+                "error"
+            )
+
+            return redirect(
+                url_for("diferencias")
+            )
+
+
+        # --------------------------------
+        # VALIDAR DESTINO
+        # --------------------------------
+
+        tipo_destino = conexion.execute("""
+            SELECT
+                id,
+                nombre,
+                circuito_recepcion
+
+            FROM tipos_visita
+
+            WHERE id = ?
+
+            AND estado = 'ACTIVO'
+
+            AND circuito_recepcion
+                IS NOT NULL
+        """, (
+            tipo_destino_id,
+        )).fetchone()
+
+
+        if tipo_destino is None:
+
+            conexion.close()
+
+            flash(
+                "El tipo de visita de destino "
+                "no es válido.",
+                "error"
+            )
+
+            return redirect(
+                url_for("diferencias")
+            )
+
+
+        # ====================================
+        # INSERT
+        # ====================================
+
+        conexion.execute("""
+            INSERT INTO diferencias (
+                fecha,
+                tipo_visita_origen_id,
+                tipo_visita_destino_id,
+                cantidad,
+                descripcion,
+                creado_en,
+                usuario_id,
+                recepcion_estado,
+                estado
+            )
+            VALUES (
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                'PENDIENTE',
+                'ACTIVO'
+            )
+        """, (
+            hoy,
+            tipo_origen_id,
+            tipo_destino_id,
+            cantidad,
+            descripcion,
+            creado_en,
+            usuario["id"]
+        ))
+
+
+        conexion.commit()
+        conexion.close()
+
+
+        return redirect(
+            url_for("diferencias")
+        )
+
+
+    # ====================================
+    # DIFERENCIAS DEL DÍA
+    # ====================================
+
+    registros = conexion.execute("""
+        SELECT
+            diferencias.id,
+            diferencias.cantidad,
+            diferencias.descripcion,
+            diferencias.creado_en,
+            diferencias.recepcion_estado,
+            diferencias.estado,
+
+            origen.nombre
+                AS tipo_origen,
+
+            destino.nombre
+                AS tipo_destino,
+
+            usuarios.nombre
+                AS usuario_nombre
+
+        FROM diferencias
+
+        JOIN tipos_visita AS origen
+            ON origen.id =
+               diferencias.tipo_visita_origen_id
+
+        JOIN tipos_visita AS destino
+            ON destino.id =
+               diferencias.tipo_visita_destino_id
+
+        JOIN usuarios
+            ON usuarios.id =
+               diferencias.usuario_id
+
+        WHERE diferencias.fecha = ?
+
+        ORDER BY
+            diferencias.creado_en DESC
+    """, (
+        hoy,
+    )).fetchall()
+
+
+    conexion.close()
+
+
+    return render_template(
+        "diferencias.html",
+        tipos_visita=tipos_visita,
+        diferencias=registros
+    )
+
+
+@app.route("/recepcion/diferencias")
+@recepcion_required
+def diferencias_recepcion():
+
+    ahora = datetime.now(
+        ZoneInfo(
+            "America/Argentina/Buenos_Aires"
+        )
+    )
+
+    hoy = ahora.date().isoformat()
+
+
+    conexion = conectar()
+
+
+    # ====================================
+    # DIFERENCIAS PENDIENTES
+    # ====================================
+
+    pendientes = conexion.execute("""
+        SELECT
+            diferencias.id,
+            diferencias.cantidad,
+            diferencias.descripcion,
+            diferencias.creado_en,
+
+            diferencias.tipo_visita_origen_id,
+            diferencias.tipo_visita_destino_id,
+
+            origen.nombre
+                AS tipo_origen,
+
+            origen.circuito_recepcion
+                AS circuito_origen,
+
+            destino.nombre
+                AS tipo_destino,
+
+            destino.circuito_recepcion
+                AS circuito_destino
+
+        FROM diferencias
+
+        JOIN tipos_visita AS origen
+            ON origen.id =
+               diferencias.tipo_visita_origen_id
+
+        JOIN tipos_visita AS destino
+            ON destino.id =
+               diferencias.tipo_visita_destino_id
+
+        WHERE diferencias.fecha = ?
+
+        AND diferencias.estado = 'ACTIVO'
+
+        AND diferencias.recepcion_estado =
+            'PENDIENTE'
+
+        ORDER BY diferencias.creado_en
+    """, (
+        hoy,
+    )).fetchall()
+
+
+    # ====================================
+    # TOURS ABIERTOS
+    # ====================================
+
+    tours_abiertos = conexion.execute("""
+        SELECT
+            tours.id,
+            tours.hora,
+            tours.circuito,
+            tours.capacidad,
+
+            COALESCE(
+                SUM(ingresos.cantidad),
+                0
+            ) AS total
+
+        FROM tours
+
+        LEFT JOIN ingresos
+            ON ingresos.tour_id =
+               tours.id
+
+        WHERE tours.fecha = ?
+
+        AND tours.estado = 'ABIERTO'
+
+        GROUP BY
+            tours.id,
+            tours.hora,
+            tours.circuito,
+            tours.capacidad
+
+        ORDER BY
+            tours.circuito,
+            tours.hora
+    """, (
+        hoy,
+    )).fetchall()
+
+
+    # ====================================
+    # CONFIRMADAS HOY
+    # ====================================
+
+    confirmadas = conexion.execute("""
+        SELECT
+            diferencias.id,
+            diferencias.cantidad,
+            diferencias.confirmado_en,
+
+            origen.nombre
+                AS tipo_origen,
+
+            destino.nombre
+                AS tipo_destino,
+
+            tour_origen.hora
+                AS hora_origen,
+
+            tour_origen.circuito
+                AS circuito_origen,
+
+            tour_destino.hora
+                AS hora_destino,
+
+            tour_destino.circuito
+                AS circuito_destino
+
+        FROM diferencias
+
+        JOIN tipos_visita AS origen
+            ON origen.id =
+               diferencias.tipo_visita_origen_id
+
+        JOIN tipos_visita AS destino
+            ON destino.id =
+               diferencias.tipo_visita_destino_id
+
+        LEFT JOIN tours AS tour_origen
+            ON tour_origen.id =
+               diferencias.tour_origen_id
+
+        LEFT JOIN tours AS tour_destino
+            ON tour_destino.id =
+               diferencias.tour_destino_id
+
+        WHERE diferencias.fecha = ?
+
+        AND diferencias.estado = 'ACTIVO'
+
+        AND diferencias.recepcion_estado =
+            'CONFIRMADA'
+
+        ORDER BY
+            diferencias.confirmado_en DESC
+    """, (
+        hoy,
+    )).fetchall()
+
+
+    conexion.close()
+
+
+    return render_template(
+        "recepcion/diferencias.html",
+        pendientes=pendientes,
+        confirmadas=confirmadas,
+        tours_abiertos=tours_abiertos
+    )
+
+@app.route(
+    "/recepcion/diferencias/<int:diferencia_id>/confirmar",
+    methods=["POST"]
+)
+@recepcion_required
+def confirmar_diferencia_recepcion(
+    diferencia_id
+):
+
+    usuario = obtener_usuario_actual()
+
+    ahora = datetime.now(
+        ZoneInfo(
+            "America/Argentina/Buenos_Aires"
+        )
+    )
+
+    hoy = ahora.date().isoformat()
+
+    confirmado_en = ahora.strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
+
+
+    tour_origen_id = request.form.get(
+        "tour_origen_id",
+        ""
+    )
+
+    tour_destino_id = request.form.get(
+        "tour_destino_id",
+        ""
+    )
+
+
+    conexion = conectar()
+
+
+    # ====================================
+    # DIFERENCIA
+    # ====================================
+
+    diferencia = conexion.execute("""
+        SELECT
+            diferencias.*,
+
+            origen.circuito_recepcion
+                AS circuito_origen,
+
+            destino.circuito_recepcion
+                AS circuito_destino
+
+        FROM diferencias
+
+        JOIN tipos_visita AS origen
+            ON origen.id =
+               diferencias.tipo_visita_origen_id
+
+        JOIN tipos_visita AS destino
+            ON destino.id =
+               diferencias.tipo_visita_destino_id
+
+        WHERE diferencias.id = ?
+
+        AND diferencias.estado = 'ACTIVO'
+
+        AND diferencias.recepcion_estado =
+            'PENDIENTE'
+    """, (
+        diferencia_id,
+    )).fetchone()
+
+
+    if diferencia is None:
+
+        conexion.close()
+
+        flash(
+            "La diferencia ya fue procesada "
+            "o no existe.",
+            "error"
+        )
+
+        return redirect(
+            url_for(
+                "diferencias_recepcion"
+            )
+        )
+
+
+    # ====================================
+    # VALIDAR TOURS
+    # ====================================
+
+    tour_origen = conexion.execute("""
+        SELECT *
+        FROM tours
+        WHERE id = ?
+        AND fecha = ?
+        AND estado = 'ABIERTO'
+    """, (
+        tour_origen_id,
+        hoy
+    )).fetchone()
+
+
+    tour_destino = conexion.execute("""
+        SELECT *
+        FROM tours
+        WHERE id = ?
+        AND fecha = ?
+        AND estado = 'ABIERTO'
+    """, (
+        tour_destino_id,
+        hoy
+    )).fetchone()
+
+
+    if (
+        tour_origen is None
+        or tour_destino is None
+    ):
+
+        conexion.close()
+
+        flash(
+            "Seleccioná tours abiertos válidos.",
+            "error"
+        )
+
+        return redirect(
+            url_for(
+                "diferencias_recepcion"
+            )
+        )
+
+
+    # ====================================
+    # VALIDAR CIRCUITOS
+    # ====================================
+
+    if (
+        tour_origen["circuito"]
+        != diferencia["circuito_origen"]
+    ):
+
+        conexion.close()
+
+        flash(
+            "El tour de origen no corresponde "
+            "a la visita original.",
+            "error"
+        )
+
+        return redirect(
+            url_for(
+                "diferencias_recepcion"
+            )
+        )
+
+
+    if (
+        tour_destino["circuito"]
+        != diferencia["circuito_destino"]
+    ):
+
+        conexion.close()
+
+        flash(
+            "El tour de destino no corresponde "
+            "a la nueva visita.",
+            "error"
+        )
+
+        return redirect(
+            url_for(
+                "diferencias_recepcion"
+            )
+        )
+
+
+    cantidad = diferencia["cantidad"]
+
+
+    # ====================================
+    # COMPROBAR QUE HAYA PERSONAS
+    # EN EL ORIGEN
+    # ====================================
+
+    disponible_origen = conexion.execute("""
+        SELECT
+            COALESCE(
+                SUM(cantidad),
+                0
+            ) AS total
+
+        FROM ingresos
+
+        WHERE tour_id = ?
+
+        AND tipo_visita_id = ?
+    """, (
+        tour_origen_id,
+        diferencia[
+            "tipo_visita_origen_id"
+        ]
+    )).fetchone()["total"]
+
+
+    if disponible_origen < cantidad:
+
+        conexion.close()
+
+        flash(
+            "El tour de origen no tiene "
+            "suficientes personas de ese "
+            "tipo de visita.",
+            "error"
+        )
+
+        return redirect(
+            url_for(
+                "diferencias_recepcion"
+            )
+        )
+
+
+    # ====================================
+    # RESTAR DEL ORIGEN
+    # ====================================
+
+    conexion.execute("""
+        INSERT INTO ingresos (
+            tour_id,
+            tipo_visita_id,
+            cantidad,
+            origen_movimiento,
+            creado_en,
+            usuario_id
+        )
+        VALUES (
+            ?,
+            ?,
+            ?,
+            'DIFERENCIA',
+            ?,
+            ?
+        )
+    """, (
+        tour_origen_id,
+        diferencia[
+            "tipo_visita_origen_id"
+        ],
+        -cantidad,
+        confirmado_en,
+        usuario["id"]
+    ))
+
+
+    # ====================================
+    # SUMAR AL DESTINO
+    # ====================================
+
+    conexion.execute("""
+        INSERT INTO ingresos (
+            tour_id,
+            tipo_visita_id,
+            cantidad,
+            origen_movimiento,
+            creado_en,
+            usuario_id
+        )
+        VALUES (
+            ?,
+            ?,
+            ?,
+            'DIFERENCIA',
+            ?,
+            ?
+        )
+    """, (
+        tour_destino_id,
+        diferencia[
+            "tipo_visita_destino_id"
+        ],
+        cantidad,
+        confirmado_en,
+        usuario["id"]
+    ))
+
+
+    # ====================================
+    # CONFIRMAR DIFERENCIA
+    # ====================================
+
+    conexion.execute("""
+        UPDATE diferencias
+
+        SET
+            recepcion_estado = 'CONFIRMADA',
+            tour_origen_id = ?,
+            tour_destino_id = ?,
+            confirmado_en = ?,
+            confirmado_por = ?
+
+        WHERE id = ?
+    """, (
+        tour_origen_id,
+        tour_destino_id,
+        confirmado_en,
+        usuario["id"],
+        diferencia_id
+    ))
+
+    # ====================================
+    # HISTORIAL DE RECEPCIÓN
+    # ====================================
+
+    conexion.execute("""
+        INSERT INTO historial_recepcion (
+            fecha,
+            creado_en,
+            origen,
+            referencia_id,
+            tipo_visita_id,
+            cantidad,
+            destino,
+            tour_id,
+            usuario_id,
+            estado
+        )
+        VALUES (
+            ?,
+            ?,
+            'DIFERENCIA',
+            ?,
+            ?,
+            ?,
+            'NORMAL',
+            ?,
+            ?,
+            'ACTIVO'
+        )
+    """, (
+        diferencia["fecha"],
+        confirmado_en,
+        diferencia_id,
+        diferencia["tipo_visita_destino_id"],
+        cantidad,
+        tour_destino_id,
+        usuario["id"]
+    ))
+
+
+    # ====================================
+    # CAPACIDAD DEL DESTINO
+    # ====================================
+
+    verificar_alertas_capacidad(
+        conexion,
+        int(tour_destino_id),
+        confirmado_en
+    )
+
+
+    conexion.commit()
+    conexion.close()
+
+
+    return redirect(
+        url_for(
+            "diferencias_recepcion"
+        )
+    )
+
+
+@app.route(
+    "/recepcion/historial/finales/exportar"
+)
+@recepcion_required
+def exportar_finales_recepcion():
+
+    ahora = datetime.now(
+        ZoneInfo(
+            "America/Argentina/Buenos_Aires"
+        )
+    )
+
+    hoy = ahora.date().isoformat()
+
+
+    fecha_desde = request.args.get(
+        "fecha_desde",
+        hoy
+    )
+
+    fecha_hasta = request.args.get(
+        "fecha_hasta",
+        hoy
+    )
+
+
+    conexion = conectar()
+
+
+    registros = conexion.execute("""
+        SELECT
+            tours.id AS tour_id,
+            tours.fecha,
+            tours.hora,
+            tours.circuito,
+            tours.capacidad,
+            tours.cerrado_en,
+
+            tipos_visita.nombre
+                AS tipo_visita,
+
+            COALESCE(
+                SUM(ingresos.cantidad),
+                0
+            ) AS cantidad
+
+        FROM tours
+
+        LEFT JOIN ingresos
+            ON ingresos.tour_id =
+               tours.id
+
+        LEFT JOIN tipos_visita
+            ON tipos_visita.id =
+               ingresos.tipo_visita_id
+
+        WHERE tours.estado = 'CERRADO'
+
+        AND tours.fecha >= ?
+        AND tours.fecha <= ?
+
+        GROUP BY
+            tours.id,
+            tours.fecha,
+            tours.hora,
+            tours.circuito,
+            tours.capacidad,
+            tours.cerrado_en,
+            tipos_visita.id,
+            tipos_visita.nombre
+
+        ORDER BY
+            tours.fecha,
+            tours.hora,
+            tours.id,
+            tipos_visita.nombre
+    """, (
+        fecha_desde,
+        fecha_hasta
+    )).fetchall()
+
+
+    conexion.close()
+
+
+    libro = Workbook()
+
+
+    # ====================================
+    # HOJA 1 - FINALES POR TOUR
+    # ====================================
+
+    hoja = libro.active
+
+    hoja.title = "Finales por tour"
+
+
+    encabezados = [
+        "Fecha",
+        "Circuito",
+        "Horario",
+        "Tipo de visita",
+        "Cantidad",
+        "Capacidad",
+        "Cerrado"
+    ]
+
+
+    hoja.append(
+        encabezados
+    )
+
+
+    relleno_rojo = PatternFill(
+        fill_type="solid",
+        fgColor="E30613"
+    )
+
+
+    fuente_blanca = Font(
+        color="FFFFFF",
+        bold=True
+    )
+
+
+    for celda in hoja[1]:
+
+        celda.fill = relleno_rojo
+        celda.font = fuente_blanca
+
+        celda.alignment = Alignment(
+            horizontal="center",
+            vertical="center"
+        )
+
+
+    for registro in registros:
+
+        if not registro["tipo_visita"]:
+            continue
+
+
+        horario = (
+            registro["hora"]
+            if registro["hora"]
+            else "MUSEO"
+        )
+
+
+        cerrado = (
+            registro["cerrado_en"][11:16]
+            if registro["cerrado_en"]
+            else "-"
+        )
+
+
+        hoja.append([
+            registro["fecha"],
+            registro["circuito"],
+            horario,
+            registro["tipo_visita"],
+            registro["cantidad"],
+            registro["capacidad"] or "-",
+            cerrado
+        ])
+
+
+    hoja.freeze_panes = "A2"
+
+    hoja.auto_filter.ref = (
+        f"A1:G{hoja.max_row}"
+    )
+
+
+    anchos = {
+        "A": 14,
+        "B": 16,
+        "C": 12,
+        "D": 24,
+        "E": 12,
+        "F": 12,
+        "G": 12
+    }
+
+
+    for columna, ancho in anchos.items():
+
+        hoja.column_dimensions[
+            columna
+        ].width = ancho
+
+
+    # ====================================
+    # HOJA 2 - RESUMEN DEL PERÍODO
+    # ====================================
+
+    resumen = libro.create_sheet(
+        "Resumen"
+    )
+
+
+    resumen.append([
+        "Tipo de visita",
+        "Total final"
+    ])
+
+
+    for celda in resumen[1]:
+
+        celda.fill = relleno_rojo
+        celda.font = fuente_blanca
+
+
+    totales = {}
+
+
+    for registro in registros:
+
+        tipo = registro[
+            "tipo_visita"
+        ]
+
+
+        if not tipo:
+            continue
+
+
+        if tipo not in totales:
+            totales[tipo] = 0
+
+
+        totales[tipo] += (
+            registro["cantidad"] or 0
+        )
+
+
+    total_general = 0
+
+
+    for tipo, cantidad in sorted(
+        totales.items()
+    ):
+
+        resumen.append([
+            tipo,
+            cantidad
+        ])
+
+        total_general += cantidad
+
+
+    resumen.append([
+        "TOTAL GENERAL",
+        total_general
+    ])
+
+
+    resumen.column_dimensions[
+        "A"
+    ].width = 25
+
+    resumen.column_dimensions[
+        "B"
+    ].width = 15
+
+
+    archivo = BytesIO()
+
+    libro.save(
+        archivo
+    )
+
+    archivo.seek(0)
+
+
+    if fecha_desde == fecha_hasta:
+
+        nombre = (
+            f"finales_recepcion_"
+            f"{fecha_desde}.xlsx"
+        )
+
+    else:
+
+        nombre = (
+            f"finales_recepcion_"
+            f"{fecha_desde}_a_"
+            f"{fecha_hasta}.xlsx"
+        )
+
+
+    return send_file(
+        archivo,
+        as_attachment=True,
+        download_name=nombre,
         mimetype=(
             "application/"
             "vnd.openxmlformats-officedocument."

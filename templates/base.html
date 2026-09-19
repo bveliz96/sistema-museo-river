@@ -17,6 +17,69 @@
     >
 </head>
 
+<!-- ===================================== -->
+<!-- ALERTAS AUTOMÁTICAS                  -->
+<!-- ===================================== -->
+
+<input
+    type="hidden"
+    id="csrf-alertas"
+    value="{{ csrf_token() }}"
+>
+
+
+<div
+    id="alerta-popup"
+    class="alerta-popup"
+    hidden
+>
+
+    <div class="alerta-popup-contenido">
+
+        <div class="alerta-popup-icono">
+            !
+        </div>
+
+
+        <div class="alerta-popup-texto">
+
+            <strong id="alerta-popup-titulo">
+                Aviso
+            </strong>
+
+            <p id="alerta-popup-mensaje">
+            </p>
+
+        </div>
+
+
+        <button
+            type="button"
+            class="alerta-popup-boton"
+            onclick="marcarAlertaEntendida()"
+        >
+            Entendido
+        </button>
+
+    </div>
+
+</div>
+<audio
+    id="sonido-alerta"
+    preload="auto"
+    src="{{ url_for(
+        'static',
+        filename='sonidos/alerta.mp3'
+    ) }}"
+></audio>
+
+<script
+    src="{{ url_for(
+        'static',
+        filename='js/alertas.js'
+    ) }}"
+></script>
+
 <body>
 
 <div class="contenedor">
@@ -47,12 +110,14 @@
 
         <ul class="menu">
 
+            
+
             <li>
                 <a href="{{ url_for('inicio') }}">
                     Inicio
                 </a>
             </li>
-
+            {% if session.get("usuario_rol") in ("CAJERO", "ADMIN") %}
             <li>
                 <a href="{{ url_for('reservas') }}">
                     Reservas
@@ -70,6 +135,7 @@
                     Inmersivo
                 </a>
             </li>
+
             <li>
                 <a
                     href="{{ url_for('nuevos_asociados') }}"
@@ -78,7 +144,12 @@
                     Nuevos asociados
                 </a>
             </li>
-                
+
+            <li>
+                <a href="{{ url_for('diferencias') }}">
+                    Diferencias
+                </a>
+            </li>
 
             <li>
                 <a href="{{ url_for('herramientas') }}">
@@ -86,6 +157,46 @@
                 </a>
             </li>
 
+            {% endif %}
+
+            {% if session.get("usuario_rol") in ("RECEPCION", "ADMIN") %}
+
+            <li>
+                <a href="{{ url_for('ingresos') }}">
+                    Ingresos
+                </a>
+            </li>
+
+            <li>
+                <a href="{{ url_for('recepcion_protocolos') }}">
+                    Protocolos Recepcion
+                </a>
+            </li>
+
+            <li>
+                <a href="{{ url_for('recepcion_grupos')}}">
+                    Grupos
+                </a>
+            </li>
+
+            <li>
+
+                <a href="{{ url_for('diferencias_recepcion') }}">
+                    Diferencias
+                </a>
+
+            </li>
+
+            <li>
+                <a
+                    href="{{ url_for('historial_recepcion') }}"
+                    class="menu-link"
+                >
+                    Historial de Recepcion
+                </a>
+            </li>
+
+            {% endif %}
 
             {% if session.get("usuario_rol") == "ADMIN" %}
 

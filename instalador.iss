@@ -1,10 +1,13 @@
 #define MyAppName "Sistema Museo River"
-#define MyAppVersion "1.2.0"
+#define MyAppVersion "1.3.0"
 #define MyAppPublisher "Sistema Museo River"
 #define MyAppExeName "SistemaMuseoRiver.exe"
 
+
 [Setup]
+
 AppId={{8E5E13A0-2A62-4E08-B44B-9BCE0D4573CC}
+
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
@@ -13,6 +16,7 @@ DefaultDirName={autopf}\Sistema Museo River
 DefaultGroupName=Sistema Museo River
 
 DisableProgramGroupPage=yes
+
 PrivilegesRequired=admin
 
 ArchitecturesAllowed=x64compatible
@@ -23,6 +27,7 @@ OutputBaseFilename=Instalador_Sistema_Museo_River_{#MyAppVersion}
 
 Compression=lzma2
 SolidCompression=yes
+
 WizardStyle=modern
 
 UninstallDisplayIcon={app}\{#MyAppExeName}
@@ -30,7 +35,7 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 CloseApplications=yes
 RestartApplications=no
 
-VersionInfoVersion=1.2.0.0
+VersionInfoVersion=1.3.0.0
 VersionInfoDescription=Instalador del Sistema Museo River
 VersionInfoProductName={#MyAppName}
 VersionInfoProductVersion={#MyAppVersion}
@@ -38,7 +43,8 @@ VersionInfoProductVersion={#MyAppVersion}
 
 [Languages]
 
-Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
+Name: "spanish"; \
+    MessagesFile: "compiler:Languages\Spanish.isl"
 
 
 [Tasks]
@@ -97,7 +103,31 @@ Name: "{commondesktop}\Sistema Museo River"; \
 
 [Run]
 
+; -----------------------------------------
+; FIREWALL
+; -----------------------------------------
+
+Filename: "{sys}\netsh.exe"; \
+    Parameters: "advfirewall firewall delete rule name=""Sistema Museo River - Servidor"""; \
+    Flags: runhidden
+
+Filename: "{sys}\netsh.exe"; \
+    Parameters: "advfirewall firewall add rule name=""Sistema Museo River - Servidor"" dir=in action=allow program=""{app}\servidor.exe"" enable=yes profile=private protocol=TCP"; \
+    Flags: runhidden
+
+
+; -----------------------------------------
+; ABRIR PANEL
+; -----------------------------------------
+
 Filename: "{app}\{#MyAppExeName}"; \
     Description: "Abrir el panel del Sistema Museo River"; \
     WorkingDir: "{app}"; \
     Flags: nowait postinstall skipifsilent
+
+
+[UninstallRun]
+
+Filename: "{sys}\netsh.exe"; \
+    Parameters: "advfirewall firewall delete rule name=""Sistema Museo River - Servidor"""; \
+    Flags: runhidden

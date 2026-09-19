@@ -1,0 +1,350 @@
+{% extends "base.html" %}
+
+
+{% block title %}
+Diferencias
+{% endblock %}
+
+
+{% block contenido %}
+
+
+<header class="encabezado">
+
+    <div>
+
+        <h1>
+            Diferencias
+        </h1>
+
+        <p class="subtitulo">
+            Cambios de visitas pendientes de asignación
+        </p>
+
+    </div>
+
+</header>
+
+
+<section class="panel">
+
+    <h2>
+        Pendientes
+    </h2>
+
+
+    {% if pendientes %}
+
+        <div class="diferencias-recepcion-lista">
+
+            {% for diferencia in pendientes %}
+
+                <form
+                    method="POST"
+                    action="{{ url_for(
+                        'confirmar_diferencia_recepcion',
+                        diferencia_id=diferencia['id']
+                    ) }}"
+                    class="diferencia-recepcion-card"
+                >
+
+                    <input
+                        type="hidden"
+                        name="csrf_token"
+                        value="{{ csrf_token() }}"
+                    >
+
+
+                    <div class="diferencia-recepcion-cambio">
+
+                        <strong>
+                            {{ diferencia["tipo_origen"] }}
+                        </strong>
+
+                        <span>
+                            →
+                        </span>
+
+                        <strong>
+                            {{ diferencia["tipo_destino"] }}
+                        </strong>
+
+                    </div>
+
+
+                    <div class="diferencia-recepcion-cantidad">
+
+                        {{ diferencia["cantidad"] }}
+
+                        {% if diferencia["cantidad"] == 1 %}
+                            persona
+                        {% else %}
+                            personas
+                        {% endif %}
+
+                    </div>
+
+
+                    {% if diferencia["descripcion"] %}
+
+                        <div class="diferencia-recepcion-descripcion">
+
+                            {{ diferencia["descripcion"] }}
+
+                        </div>
+
+                    {% endif %}
+
+
+                    <div class="diferencia-recepcion-seccion">
+
+                        <strong>
+                            Descontar de
+                        </strong>
+
+
+                        <div class="diferencia-tours">
+
+                            {% for tour in tours_abiertos %}
+
+                                {% if
+                                    tour["circuito"]
+                                    ==
+                                    diferencia["circuito_origen"]
+                                %}
+
+                                    <label class="diferencia-tour-opcion">
+
+                                        <input
+                                            type="radio"
+                                            name="tour_origen_id"
+                                            value="{{ tour['id'] }}"
+                                            required
+                                        >
+
+                                        <span>
+
+                                            {% if tour["circuito"] == "MUSEO" %}
+
+                                                Museo
+
+                                            {% else %}
+
+                                                {{ tour["hora"] }}
+
+                                            {% endif %}
+
+                                            ·
+
+                                            {{ tour["total"] }}
+
+                                            {% if tour["capacidad"] %}
+
+                                                /
+                                                {{ tour["capacidad"] }}
+
+                                            {% endif %}
+
+                                        </span>
+
+                                    </label>
+
+                                {% endif %}
+
+                            {% endfor %}
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="diferencia-recepcion-seccion">
+
+                        <strong>
+                            Sumar a
+                        </strong>
+
+
+                        <div class="diferencia-tours">
+
+                            {% for tour in tours_abiertos %}
+
+                                {% if
+                                    tour["circuito"]
+                                    ==
+                                    diferencia["circuito_destino"]
+                                %}
+
+                                    <label class="diferencia-tour-opcion">
+
+                                        <input
+                                            type="radio"
+                                            name="tour_destino_id"
+                                            value="{{ tour['id'] }}"
+                                            required
+                                        >
+
+                                        <span>
+
+                                            {% if tour["circuito"] == "MUSEO" %}
+
+                                                Museo
+
+                                            {% else %}
+
+                                                {{ tour["hora"] }}
+
+                                            {% endif %}
+
+                                            ·
+
+                                            {{ tour["total"] }}
+
+                                            {% if tour["capacidad"] %}
+
+                                                /
+                                                {{ tour["capacidad"] }}
+
+                                            {% endif %}
+
+                                        </span>
+
+                                    </label>
+
+                                {% endif %}
+
+                            {% endfor %}
+
+                        </div>
+
+                    </div>
+
+
+                    <button
+                        type="submit"
+                        class="boton diferencia-confirmar"
+                    >
+                        Confirmar diferencia
+                    </button>
+
+                </form>
+
+            {% endfor %}
+
+        </div>
+
+
+    {% else %}
+
+        <p class="texto-vacio">
+            No hay diferencias pendientes.
+        </p>
+
+    {% endif %}
+
+</section>
+
+
+<section class="panel">
+
+    <h2>
+        Confirmadas hoy
+    </h2>
+
+
+    {% if confirmadas %}
+
+        <div class="tabla-contenedor">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+                        <th>Hora</th>
+                        <th>Cambio</th>
+                        <th>Cantidad</th>
+                        <th>Origen</th>
+                        <th>Destino</th>
+                    </tr>
+
+                </thead>
+
+
+                <tbody>
+
+                    {% for diferencia in confirmadas %}
+
+                        <tr>
+
+                            <td>
+                                {{ diferencia["confirmado_en"][11:16] }}
+                            </td>
+
+                            <td>
+
+                                {{ diferencia["tipo_origen"] }}
+
+                                →
+
+                                {{ diferencia["tipo_destino"] }}
+
+                            </td>
+
+                            <td>
+                                {{ diferencia["cantidad"] }}
+                            </td>
+
+                            <td>
+
+                                {% if diferencia["circuito_origen"] == "MUSEO" %}
+
+                                    Museo
+
+                                {% else %}
+
+                                    {{ diferencia["circuito_origen"] }}
+                                    {{ diferencia["hora_origen"] }}
+
+                                {% endif %}
+
+                            </td>
+
+                            <td>
+
+                                {% if diferencia["circuito_destino"] == "MUSEO" %}
+
+                                    Museo
+
+                                {% else %}
+
+                                    {{ diferencia["circuito_destino"] }}
+                                    {{ diferencia["hora_destino"] }}
+
+                                {% endif %}
+
+                            </td>
+
+                        </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+
+    {% else %}
+
+        <p class="texto-vacio">
+            Todavía no se confirmó ninguna diferencia.
+        </p>
+
+    {% endif %}
+
+</section>
+
+
+{% endblock %}

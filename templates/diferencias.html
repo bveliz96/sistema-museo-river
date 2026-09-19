@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+
+
+{% block title %}
+Diferencias
+{% endblock %}
+
+
+{% block contenido %}
+
+
+<header class="encabezado">
+
+    <div>
+
+        <h1>
+            Diferencias
+        </h1>
+
+        <p class="subtitulo">
+            Registro de cambios entre tipos de visita
+        </p>
+
+    </div>
+
+</header>
+
+
+<section class="panel">
+
+    <h2>
+        Nueva diferencia
+    </h2>
+
+
+    <form
+        method="POST"
+        class="diferencias-form"
+    >
+
+        <input
+            type="hidden"
+            name="csrf_token"
+            value="{{ csrf_token() }}"
+        >
+
+
+        <div class="diferencias-grid">
+
+
+            <div class="campo">
+
+                <label for="tipo_visita_origen_id">
+                    Visita original
+                </label>
+
+                <select
+                    id="tipo_visita_origen_id"
+                    name="tipo_visita_origen_id"
+                    required
+                >
+
+                    <option value="">
+                        Seleccionar
+                    </option>
+
+                    {% for tipo in tipos_visita %}
+
+                        <option value="{{ tipo['id'] }}">
+                            {{ tipo["nombre"] }}
+                        </option>
+
+                    {% endfor %}
+
+                </select>
+
+            </div>
+
+
+            <div class="diferencia-flecha">
+                →
+            </div>
+
+
+            <div class="campo">
+
+                <label for="tipo_visita_destino_id">
+                    Nueva visita
+                </label>
+
+                <select
+                    id="tipo_visita_destino_id"
+                    name="tipo_visita_destino_id"
+                    required
+                >
+
+                    <option value="">
+                        Seleccionar
+                    </option>
+
+                    {% for tipo in tipos_visita %}
+
+                        <option value="{{ tipo['id'] }}">
+                            {{ tipo["nombre"] }}
+                        </option>
+
+                    {% endfor %}
+
+                </select>
+
+            </div>
+
+
+            <div class="campo">
+
+                <label for="cantidad">
+                    Cantidad
+                </label>
+
+                <input
+                    type="number"
+                    id="cantidad"
+                    name="cantidad"
+                    min="1"
+                    value="1"
+                    required
+                >
+
+            </div>
+
+
+            <div class="campo diferencia-descripcion">
+
+                <label for="descripcion">
+                    Descripción
+                </label>
+
+                <input
+                    type="text"
+                    id="descripcion"
+                    name="descripcion"
+                    autocomplete="off"
+                >
+
+            </div>
+
+
+        </div>
+
+
+        <div class="diferencias-acciones">
+
+            <button
+                type="submit"
+                class="boton"
+            >
+                Registrar diferencia
+            </button>
+
+        </div>
+
+    </form>
+
+</section>
+
+
+<section class="panel">
+
+    <h2>
+        Diferencias de hoy
+    </h2>
+
+
+    {% if diferencias %}
+
+        <div class="tabla-contenedor">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+                        <th>Hora</th>
+                        <th>Cambio</th>
+                        <th>Cantidad</th>
+                        <th>Descripción</th>
+                        <th>Estado recepción</th>
+                        <th>Cargado por</th>
+                    </tr>
+
+                </thead>
+
+
+                <tbody>
+
+                    {% for diferencia in diferencias %}
+
+                        <tr>
+
+                            <td>
+                                {{ diferencia["creado_en"][11:16] }}
+                            </td>
+
+                            <td>
+                                <strong>
+                                    {{ diferencia["tipo_origen"] }}
+                                </strong>
+
+                                →
+
+                                <strong>
+                                    {{ diferencia["tipo_destino"] }}
+                                </strong>
+                            </td>
+
+                            <td>
+                                {{ diferencia["cantidad"] }}
+                            </td>
+
+                            <td>
+                                {{ diferencia["descripcion"] or "-" }}
+                            </td>
+
+                            <td>
+
+                                {% if diferencia["recepcion_estado"] == "PENDIENTE" %}
+
+                                    <span class="estado-pendiente">
+                                        Pendiente
+                                    </span>
+
+                                {% else %}
+
+                                    <span class="estado-activo">
+                                        Confirmada
+                                    </span>
+
+                                {% endif %}
+
+                            </td>
+
+                            <td>
+                                {{ diferencia["usuario_nombre"] }}
+                            </td>
+
+                        </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    {% else %}
+
+        <p class="texto-vacio">
+            No hay diferencias cargadas hoy.
+        </p>
+
+    {% endif %}
+
+</section>
+
+
+{% endblock %}

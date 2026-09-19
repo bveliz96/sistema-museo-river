@@ -38,6 +38,12 @@ def obtener_carpeta_datos():
 
 def obtener_carpeta_recursos():
 
+    if (
+        getattr(sys, "frozen", False)
+        and hasattr(sys, "_MEIPASS")
+    ):
+        return Path(sys._MEIPASS)
+
     return Path(__file__).resolve().parent
 
 CARPETA_PROGRAMA = obtener_carpeta_programa()

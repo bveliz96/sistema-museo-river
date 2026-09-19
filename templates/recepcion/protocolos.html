@@ -1,0 +1,327 @@
+{% extends "base.html" %}
+
+
+{% block title %}
+Protocolos
+{% endblock %}
+
+
+{% block contenido %}
+
+
+<header class="encabezado">
+
+    <div>
+
+        <h1>
+            Protocolos
+        </h1>
+
+        <p class="subtitulo">
+            Confirmación de protocolos ingresados por caja
+        </p>
+
+    </div>
+
+</header>
+
+
+<div class="protocolos-recepcion">
+
+
+    {% if protocolos %}
+
+
+        {% for protocolo in protocolos %}
+
+
+            <section class="protocolo-recepcion-card">
+
+
+                <!-- ============================= -->
+                <!-- CABECERA                     -->
+                <!-- ============================= -->
+
+                <div class="protocolo-recepcion-cabecera">
+
+                    <div>
+
+                        <span class="protocolo-etiqueta">
+                            Tipo de protocolo
+                        </span>
+
+                        <strong>
+                            {{ protocolo["tipo_protocolo"] }}
+                        </strong>
+
+                    </div>
+
+
+                    <div class="protocolo-cantidad">
+
+                        {{ protocolo["cantidad"] }}
+
+                        <span>
+                            personas
+                        </span>
+
+                    </div>
+
+                </div>
+
+
+                <!-- ============================= -->
+                <!-- DATOS                         -->
+                <!-- ============================= -->
+
+                <div class="protocolo-recepcion-datos">
+
+
+                    <div>
+
+                        <span class="protocolo-etiqueta">
+                            Tipo de visita
+                        </span>
+
+                        <strong>
+                            {{ protocolo["tipo_visita"] }}
+                        </strong>
+
+                    </div>
+
+
+                    <div>
+
+                        <span class="protocolo-etiqueta">
+                            Circuito
+                        </span>
+
+
+                        {% if protocolo["circuito"] %}
+
+                            <strong>
+                                {{ protocolo["circuito"] }}
+                            </strong>
+
+                        {% else %}
+
+                            <strong class="mensaje-configuracion">
+                                ⚠ Sin configurar
+                            </strong>
+
+                        {% endif %}
+
+                    </div>
+
+
+                    <div>
+
+                        <span class="protocolo-etiqueta">
+                            Descripción
+                        </span>
+
+                        <strong>
+                            {{ protocolo["descripcion"] or "-" }}
+                        </strong>
+
+                    </div>
+
+
+                </div>
+
+
+                <!-- ============================= -->
+                <!-- DESTINO                       -->
+                <!-- ============================= -->
+
+                <div class="protocolo-destino">
+
+                    <span class="protocolo-etiqueta">
+                        ¿Cómo ingresa?
+                    </span>
+
+
+                    <!-- ============================= -->
+                    <!-- VISITA NORMAL                -->
+                    <!-- ============================= -->
+
+                    <div class="protocolo-tours">
+
+                        <strong>
+                            Visita normal
+                        </strong>
+
+
+                        {% if not protocolo["circuito"] %}
+
+
+                            <div class="protocolo-sin-tour">
+
+                                ⚠ Este tipo de visita no tiene
+                                un circuito de recepción configurado.
+
+                            </div>
+
+
+                        {% elif protocolo["tours_abiertos"] %}
+
+
+                            <div class="protocolo-tours-grid">
+
+
+                                {% for tour in protocolo["tours_abiertos"] %}
+
+
+                                    <form
+                                        method="POST"
+                                        action="{{ url_for(
+                                            'confirmar_protocolo_recepcion',
+                                            protocolo_id=protocolo['id']
+                                        ) }}"
+                                    >
+
+                                        <input
+                                            type="hidden"
+                                            name="csrf_token"
+                                            value="{{ csrf_token() }}"
+                                        >
+
+                                        <input
+                                            type="hidden"
+                                            name="destino"
+                                            value="NORMAL"
+                                        >
+
+                                        <input
+                                            type="hidden"
+                                            name="tour_id"
+                                            value="{{ tour['id'] }}"
+                                        >
+
+
+                                        <button
+                                            type="submit"
+                                            class="boton-tour-protocolo"
+                                        >
+
+
+                                            {% if protocolo["circuito"] == "MUSEO" %}
+
+                                                <strong>
+                                                    Museo
+                                                </strong>
+
+                                            {% else %}
+
+                                                <strong>
+                                                    {{ tour["hora"] }}
+                                                </strong>
+
+                                            {% endif %}
+
+
+                                            <span>
+                                                {{ tour["total"] }}
+                                                personas
+                                            </span>
+
+
+                                        </button>
+
+                                    </form>
+
+
+                                {% endfor %}
+
+
+                            </div>
+
+
+                        {% else %}
+
+
+                            <div class="protocolo-sin-tour">
+
+                                No hay tours de
+                                {{ protocolo["circuito"] }}
+                                abiertos.
+
+                            </div>
+
+
+                        {% endif %}
+
+
+                    </div>
+
+
+                    <!-- ============================= -->
+                    <!-- VISITA PRIVADA               -->
+                    <!-- ============================= -->
+
+                    <form
+                        method="POST"
+                        action="{{ url_for(
+                            'confirmar_protocolo_recepcion',
+                            protocolo_id=protocolo['id']
+                        ) }}"
+                        class="protocolo-form-privada"
+                        onsubmit="
+                            return confirm(
+                                '¿Confirmar como visita privada?'
+                            )
+                        "
+                    >
+
+                        <input
+                            type="hidden"
+                            name="csrf_token"
+                            value="{{ csrf_token() }}"
+                        >
+
+                        <input
+                            type="hidden"
+                            name="destino"
+                            value="PRIVADA"
+                        >
+
+
+                        <button
+                            type="submit"
+                            class="boton-protocolo-privada"
+                        >
+                            Visita privada
+                        </button>
+
+                    </form>
+
+
+                </div>
+
+
+            </section>
+
+
+        {% endfor %}
+
+
+    {% else %}
+
+
+        <section class="panel sin-datos">
+
+            <p>
+                No hay protocolos pendientes
+                para confirmar.
+            </p>
+
+        </section>
+
+
+    {% endif %}
+
+
+</div>
+
+
+{% endblock %}

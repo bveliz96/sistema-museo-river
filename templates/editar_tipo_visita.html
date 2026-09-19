@@ -59,6 +59,57 @@ Editar tipo de visita
 
             </div>
 
+            <div class="campo">
+
+                <label for="circuito_recepcion">
+                    Circuito en recepción
+                </label>
+
+                <select
+                    id="circuito_recepcion"
+                    name="circuito_recepcion"
+                >
+
+                    <option
+                        value=""
+                        {% if not tipo["circuito_recepcion"] %}
+                            selected
+                        {% endif %}
+                    >
+                        Sin configurar
+                    </option>
+
+                    <option
+                        value="ESTADIO"
+                        {% if tipo["circuito_recepcion"] == "ESTADIO" %}
+                            selected
+                        {% endif %}
+                    >
+                        Estadio
+                    </option>
+
+                    <option
+                        value="TRIBUNA"
+                        {% if tipo["circuito_recepcion"] == "TRIBUNA" %}
+                            selected
+                        {% endif %}
+                    >
+                        Tribuna
+                    </option>
+
+                    <option
+                        value="MUSEO"
+                        {% if tipo["circuito_recepcion"] == "MUSEO" %}
+                            selected
+                        {% endif %}
+                    >
+                        Museo
+                    </option>
+
+                </select>
+
+            </div>
+
         </div>
 
 

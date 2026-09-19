@@ -1,0 +1,592 @@
+{% extends "base.html" %}
+
+
+{% block title %}
+Ingresos
+{% endblock %}
+
+
+{% block contenido %}
+
+
+<header class="encabezado">
+
+    <div>
+
+        <h1>
+            Ingresos
+        </h1>
+
+        <p class="subtitulo">
+            Control de ingreso a las visitas
+        </p>
+
+    </div>
+
+</header>
+
+
+{% with mensajes = get_flashed_messages(
+    with_categories=true
+) %}
+
+    {% if mensajes %}
+
+        {% for categoria, mensaje in mensajes %}
+
+            <div class="mensaje-{{ categoria }}">
+                {{ mensaje }}
+            </div>
+
+        {% endfor %}
+
+    {% endif %}
+
+{% endwith %}
+
+
+
+<div class="recepcion-grid">
+
+    {% set nombres = {
+        "ESTADIO": "Visita al estadio",
+        "TRIBUNA": "Tribuna",
+        "MUSEO": "Museo"
+    } %}
+
+
+    {% for circuito in (
+        "ESTADIO",
+        "TRIBUNA",
+        "MUSEO"
+    ) %}
+
+        {% set datos = tours[circuito] %}
+
+
+        <div class="recepcion-columna recepcion-columna-{{ circuito|lower }}">
+
+            <h2 class="recepcion-columna-titulo">
+                {{ nombres[circuito] }}
+            </h2>
+
+
+            <!-- ========================= -->
+            <!-- TOURS ABIERTOS           -->
+            <!-- ========================= -->
+
+            {% if datos["abiertos"] %}
+
+                {% for tour in datos["abiertos"] %}
+
+                    <section
+                        class="tour-card tour-card-{{ circuito|lower }}"
+                        id="tour-card-{{ tour['id'] }}"
+                    >
+
+
+                        {% if circuito != "MUSEO" %}
+
+                            <div class="tour-hora">
+                                {{ tour["hora"] }}
+                            </div>
+
+                        {% else %}
+
+                            <div class="tour-hora tour-hora-museo">
+                                Museo
+                            </div>
+
+                        {% endif %}
+
+
+                        <div class="tour-estado">
+                            Tour abierto
+                        </div>
+
+
+                        <div class="tour-total-label">
+                            Personas
+                        </div>
+
+
+                        <div
+                            class="
+                                tour-total
+                                {% if
+                                    tour["capacidad"]
+                                    and tour["total"] > tour["capacidad"]
+                                %}
+                                    tour-total-excedido
+                                {% endif %}
+                            "
+                            id="total-{{ tour['id'] }}"
+                            data-capacidad="{{ tour['capacidad'] or '' }}"
+                        >
+                            {{ tour["total"] }}
+                        </div>
+
+
+
+                        <!-- ========================= -->
+                        <!-- CONTADOR FAMILIA         -->
+                        <!-- ========================= -->
+
+                        <div class="carga-familia">
+
+                            <div class="carga-familia-titulo">
+                                Cantidad
+                            </div>
+
+
+                            <div class="contador-familia">
+
+                                <button
+                                    type="button"
+                                    class="contador-familia-boton"
+                                    data-tour-id="{{ tour['id'] }}"
+                                    onclick="cambiarCantidadDesdeBoton(this, -1)"
+                                >
+                                    −
+                                </button>
+
+
+                                <div
+                                    class="contador-familia-numero"
+                                    id="cantidad-{{ tour['id'] }}"
+                                >
+                                    1
+                                </div>
+
+
+                                <button
+                                    type="button"
+                                    class="
+                                        contador-familia-boton
+                                        contador-familia-sumar
+                                    "
+                                    data-tour-id="{{ tour['id'] }}"
+                                    onclick="cambiarCantidadDesdeBoton(this, 1)"
+                                >
+                                    +
+                                </button>
+
+                            </div>
+
+
+
+                            <!-- ========================= -->
+                            <!-- AGREGAR INGRESO          -->
+                            <!-- ========================= -->
+
+                            <div class="acciones-ingreso">
+
+                                {% for tipo in datos["tipos_visita"] %}
+
+                                    <button
+                                        type="button"
+                                        class="boton-ingreso"
+                                        data-tour-id="{{ tour['id'] }}"
+                                        data-tipo-visita-id="{{ tipo['id'] }}"
+                                        onclick="guardarIngresoDesdeBoton(this)"
+                                    >
+                                        {{ tipo["nombre"] }}
+                                    </button>
+
+                                {% endfor %}
+
+                            </div>
+
+
+
+                            <!-- ========================= -->
+                            <!-- DESHACER                 -->
+                            <!-- ========================= -->
+
+                            <button
+                                type="button"
+                                class="boton-deshacer-ingreso"
+                                data-tour-id="{{ tour['id'] }}"
+                                onclick="deshacerIngreso(this)"
+                            >
+                                ↶ Deshacer última carga
+                            </button>
+
+
+                        </div>
+
+
+
+                        <!-- ========================= -->
+                        <!-- CERRAR TOUR               -->
+                        <!-- ========================= -->
+
+                        <form
+                            method="POST"
+                            action="{{ url_for(
+                                'cerrar_tour',
+                                tour_id=tour['id']
+                            ) }}"
+                            class="form-cerrar-tour"
+                            onsubmit="return confirmarCierreTour(this)"
+                            data-circuito="{{ circuito }}"
+                            data-hora="{{ tour['hora'] or '' }}"
+                        >
+
+                            <input
+                                type="hidden"
+                                name="csrf_token"
+                                value="{{ csrf_token() }}"
+                            >
+
+                            <button
+                                type="submit"
+                                class="boton-cerrar-tour"
+                            >
+                                Cerrar tour
+                            </button>
+
+                        </form>
+
+
+                    </section>
+
+                {% endfor %}
+
+
+            {% else %}
+
+            {% endif %}
+
+
+
+            <!-- ========================= -->
+            <!-- ABRIR TOUR                -->
+            <!-- ========================= -->
+
+            {% if circuito != "MUSEO" %}
+
+                <section class="tour-card tour-card-abrir">
+
+                    <button
+                        type="button"
+                        class="boton-abrir-tour-grande"
+                        onclick="abrirTeclado('{{ circuito }}')"
+                    >
+                        <span class="abrir-tour-icono">
+                            +
+                        </span>
+
+                        <span>
+                            Abrir tour
+                        </span>
+                    </button>
+
+                </section>
+
+
+            {% elif not datos["abiertos"] %}
+
+                <section class="tour-card tour-card-abrir">
+
+                    <form
+                        method="POST"
+                        action="{{ url_for('abrir_tour') }}"
+                        class="form-abrir-museo"
+                    >
+
+                        <input
+                            type="hidden"
+                            name="csrf_token"
+                            value="{{ csrf_token() }}"
+                        >
+
+                        <input
+                            type="hidden"
+                            name="circuito"
+                            value="MUSEO"
+                        >
+
+                        <button
+                            type="submit"
+                            class="boton-abrir-tour-grande"
+                        >
+
+                            <span class="abrir-tour-icono">
+                                +
+                            </span>
+
+                            <span>
+                                Abrir Museo
+                            </span>
+
+                        </button>
+
+                    </form>
+
+                </section>
+
+            {% endif %}
+
+
+            <!-- ========================= -->
+            <!-- ULTIMO CERRADO           -->
+            <!-- ========================= -->
+
+            {% if datos["ultimo_cerrado"] %}
+
+                <div class="ultimo-tour-cerrado">
+
+                    <strong>
+                        Último tour cerrado
+                    </strong>
+
+
+                    {% if circuito != "MUSEO" %}
+
+                        <span>
+                            {{ datos["ultimo_cerrado"]["hora"] }}
+                        </span>
+
+                    {% endif %}
+
+
+                    <span>
+                        {{ datos["ultimo_cerrado"]["total"] }}
+                        personas
+                    </span>
+
+
+                    <form
+                        method="POST"
+                        action="{{ url_for(
+                            'reabrir_tour',
+                            tour_id=datos['ultimo_cerrado']['id']
+                        ) }}"
+                    >
+
+                        <input
+                            type="hidden"
+                            name="csrf_token"
+                            value="{{ csrf_token() }}"
+                        >
+
+                        <button
+                            type="submit"
+                            class="boton-reabrir-tour"
+                        >
+                            Reabrir tour
+                        </button>
+
+                    </form>
+
+                </div>
+
+            {% endif %}
+
+
+        </div>
+
+    {% endfor %}
+
+</div>
+
+
+
+<!-- ====================================== -->
+<!-- FORMULARIO OCULTO                     -->
+<!-- ====================================== -->
+
+<form
+    id="form-abrir-tour"
+    method="POST"
+    action="{{ url_for('abrir_tour') }}"
+>
+
+    <input
+        type="hidden"
+        name="csrf_token"
+        value="{{ csrf_token() }}"
+    >
+
+    <input
+        type="hidden"
+        id="tour-circuito"
+        name="circuito"
+    >
+
+    <input
+        type="hidden"
+        id="tour-hora"
+        name="hora"
+    >
+
+    <input
+        type="hidden"
+        id="tour-capacidad"
+        name="capacidad"
+        value="100"
+    >
+
+</form>
+
+
+
+
+<!-- ====================================== -->
+<!-- TECLADO DE HORARIO                    -->
+<!-- ====================================== -->
+
+<div
+    id="modal-horario"
+    class="modal-horario"
+>
+
+    <div class="calculadora">
+
+        <div class="calculadora-pantalla">
+
+            <div
+                id="teclado-circuito"
+                class="calculadora-operacion"
+            >
+                ESTADIO
+            </div>
+
+            <div
+                id="horario-display"
+                class="calculadora-resultado"
+            >
+                --:--
+            </div>
+
+        </div>
+
+
+        <div class="calculadora-teclado">
+
+            <button
+                type="button"
+                class="calculadora-boton"
+                onclick="agregarNumero('1')"
+            >
+                1
+            </button>
+
+            <button
+                type="button"
+                class="calculadora-boton"
+                onclick="agregarNumero('2')"
+            >
+                2
+            </button>
+
+            <button
+                type="button"
+                class="calculadora-boton"
+                onclick="agregarNumero('3')"
+            >
+                3
+            </button>
+
+
+            <button
+                type="button"
+                class="calculadora-boton"
+                onclick="agregarNumero('4')"
+            >
+                4
+            </button>
+
+            <button
+                type="button"
+                class="calculadora-boton"
+                onclick="agregarNumero('5')"
+            >
+                5
+            </button>
+
+            <button
+                type="button"
+                class="calculadora-boton"
+                onclick="agregarNumero('6')"
+            >
+                6
+            </button>
+
+
+            <button
+                type="button"
+                class="calculadora-boton"
+                onclick="agregarNumero('7')"
+            >
+                7
+            </button>
+
+            <button
+                type="button"
+                class="calculadora-boton"
+                onclick="agregarNumero('8')"
+            >
+                8
+            </button>
+
+            <button
+                type="button"
+                class="calculadora-boton"
+                onclick="agregarNumero('9')"
+            >
+                9
+            </button>
+
+            <button
+                type="button"
+                class="calculadora-boton"
+                onclick="agregarNumero('0')"
+            >
+                0
+            </button>
+
+            <button
+                type="button"
+                class="
+                    calculadora-boton
+                    calculadora-boton-limpiar
+                "
+                onclick="borrarNumero()"
+            >
+                ⌫
+            </button>
+
+            <button
+                type="button"
+                class="
+                    calculadora-boton
+                    calculadora-boton-igual
+                "
+                onclick="confirmarHorario()"
+            >
+                ✓
+            </button>
+
+        </div>
+
+
+        <button
+            type="button"
+            class="boton-secundario boton-cancelar-horario"
+            onclick="cerrarTeclado()"
+        >
+            Cancelar
+        </button>
+
+    </div>
+
+</div>
+
+
+<script src="{{ url_for('static', filename='js/recepcion_ingresos.js') }}"></script>
+
+
+
+{% endblock %}

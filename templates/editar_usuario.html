@@ -99,12 +99,21 @@ Editar usuario
                 >
 
                     <option
-                        value="OPERADOR"
-                        {% if usuario["rol"] == "OPERADOR" %}
+                        value="CAJERO"
+                        {% if usuario["rol"] == "CAJERO" %}
                             selected
                         {% endif %}
                     >
-                        Operador
+                        Cajero
+                    </option>
+
+                    <option
+                        value="RECEPCION"
+                        {% if usuario["rol"] == "RECEPCION" %}
+                            selected
+                        {% endif %}
+                    >
+                        Recepcion
                     </option>
 
                     <option
@@ -115,6 +124,7 @@ Editar usuario
                     >
                         Administrador
                     </option>
+
 
                 </select>
 

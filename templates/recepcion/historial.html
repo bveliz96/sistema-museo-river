@@ -1,0 +1,896 @@
+{% extends "base.html" %}
+
+
+{% block title %}
+Historial de Recepción
+{% endblock %}
+
+
+{% block contenido %}
+
+
+<header class="encabezado">
+
+    <div>
+
+        <h1>
+            Historial de Recepción
+        </h1>
+
+        <p class="subtitulo">
+            Movimientos registrados durante el día
+        </p>
+
+    </div>
+    <div class="acciones-encabezado">
+
+        <a
+            href="{{ url_for(
+                'exportar_historial_recepcion',
+
+                fecha_desde=fecha_desde,
+                fecha_hasta=fecha_hasta,
+
+                origen=origen,
+                tipo_visita_id=tipo_visita_id,
+                destino=destino,
+
+                usuario_id=usuario_id,
+                estado=estado,
+
+                tour_id=tour_id
+            ) }}"
+            class="boton-secundario"
+        >
+            📊 Exportar Excel
+        </a>
+
+        <a
+            href="{{ url_for(
+                'exportar_finales_recepcion',
+                fecha_desde=fecha_desde,
+                fecha_hasta=fecha_hasta
+            ) }}"
+            class="boton-secundario"
+        >
+            📋 Exportar finales
+        </a>
+
+    </div>
+
+
+</header>
+
+<section class="panel">
+
+    <form
+        method="GET"
+        class="filtros-grid"
+    >
+
+
+        <div class="campo">
+
+            <label for="fecha_desde">
+                Desde
+            </label>
+
+            <input
+                type="date"
+                id="fecha_desde"
+                name="fecha_desde"
+                value="{{ fecha_desde }}"
+            >
+
+        </div>
+
+
+        <div class="campo">
+
+            <label for="fecha_hasta">
+                Hasta
+            </label>
+
+            <input
+                type="date"
+                id="fecha_hasta"
+                name="fecha_hasta"
+                value="{{ fecha_hasta }}"
+            >
+
+        </div>
+
+
+        <div class="campo">
+
+            <label for="origen">
+                Origen
+            </label>
+
+            <select
+                id="origen"
+                name="origen"
+            >
+
+                <option value="">
+                    Todos
+                </option>
+
+                <option
+                    value="INGRESO"
+                    {% if origen == "INGRESO" %}
+                        selected
+                    {% endif %}
+                >
+                    Ingreso
+                </option>
+
+                <option
+                    value="GRUPO"
+                    {% if origen == "GRUPO" %}
+                        selected
+                    {% endif %}
+                >
+                    Grupo
+                </option>
+
+                <option
+                    value="PROTOCOLO"
+                    {% if origen == "PROTOCOLO" %}
+                        selected
+                    {% endif %}
+                >
+                    Protocolo
+                </option>
+
+                    <option
+                        value="DIFERENCIA"
+                        {% if origen == "DIFERENCIA" %}
+                            selected
+                        {% endif %}
+                    >
+                        Diferencia
+                    </option>
+
+            </select>
+
+        </div>
+
+
+        <div class="campo">
+
+            <label for="tipo_visita_id">
+                Tipo de visita
+            </label>
+
+            <select
+                id="tipo_visita_id"
+                name="tipo_visita_id"
+            >
+
+                <option value="">
+                    Todos
+                </option>
+
+                    {% for tipo in tipos_visita %}
+
+                        <option
+                            value="{{ tipo['id'] }}"
+                            data-circuito="{{ tipo['circuito_recepcion'] or '' }}"
+                            {% if tipo_visita_id|string == tipo['id']|string %}
+                                selected
+                            {% endif %}
+                        >
+                            {{ tipo["nombre"] }}
+                        </option>
+
+                    {% endfor %}
+
+            </select>
+
+        </div>
+
+        <div class="campo">
+
+            <label for="tour_id">
+                Tour
+            </label>
+
+            <select
+                id="tour_id"
+                name="tour_id"
+            >
+
+                <option value="">
+                    Todos
+                </option>
+
+                {% for tour in tours_filtro %}
+
+                    <option
+                        value="{{ tour['id'] }}"
+                        data-circuito="{{ tour['circuito'] }}"
+                        {% if tour_id|string == tour['id']|string %}
+                            selected
+                        {% endif %}
+                    >
+
+                        {% if tour["circuito"] == "MUSEO" %}
+
+                            Museo -
+                            {{ tour["fecha"][8:10] }}/{{ tour["fecha"][5:7] }}/{{ tour["fecha"][0:4] }}
+
+                        {% else %}
+
+                            {{ tour["hora"] }}
+                            -
+                            {{ tour["circuito"] }}
+                            -
+                            {{ tour["fecha"][8:10] }}/{{ tour["fecha"][5:7] }}/{{ tour["fecha"][0:4] }}
+
+                        {% endif %}
+
+                    </option>
+
+                {% endfor %}
+
+            </select>
+
+        </div>
+
+
+        <div class="campo">
+
+            <label for="destino">
+                Destino
+            </label>
+
+            <select
+                id="destino"
+                name="destino"
+            >
+
+                <option value="">
+                    Todos
+                </option>
+
+                <option
+                    value="NORMAL"
+                    {% if destino == "NORMAL" %}
+                        selected
+                    {% endif %}
+                >
+                    Normal
+                </option>
+
+                <option
+                    value="PRIVADA"
+                    {% if destino == "PRIVADA" %}
+                        selected
+                    {% endif %}
+                >
+                    Privada
+                </option>
+
+            </select>
+
+        </div>
+
+
+        <div class="campo">
+
+            <label for="usuario_id">
+                Usuario
+            </label>
+
+            <select
+                id="usuario_id"
+                name="usuario_id"
+            >
+
+                <option value="">
+                    Todos
+                </option>
+
+                {% for usuario in usuarios %}
+
+                    <option
+                        value="{{ usuario['id'] }}"
+                        {% if usuario_id|string == usuario['id']|string %}
+                            selected
+                        {% endif %}
+                    >
+                        {{ usuario["nombre"] }}
+                    </option>
+
+                {% endfor %}
+
+            </select>
+
+        </div>
+
+
+        <div class="campo">
+
+            <label for="estado">
+                Estado
+            </label>
+
+            <select
+                id="estado"
+                name="estado"
+            >
+
+                <option value="">
+                    Todos
+                </option>
+
+                <option
+                    value="ACTIVO"
+                    {% if estado == "ACTIVO" %}
+                        selected
+                    {% endif %}
+                >
+                    Activo
+                </option>
+
+                <option
+                    value="ANULADO"
+                    {% if estado == "ANULADO" %}
+                        selected
+                    {% endif %}
+                >
+                    Anulado
+                </option>
+
+            </select>
+
+        </div>
+
+
+        <div class="filtros-botones">
+
+            <button
+                type="submit"
+                class="boton"
+            >
+                🔎 Buscar
+            </button>
+
+            <a
+                href="{{ url_for('historial_recepcion') }}"
+                class="boton-secundario"
+            >
+                Limpiar
+            </a>
+
+        </div>
+
+
+    </form>
+
+</section>
+
+
+<div class="historial-recepcion">
+
+
+    {% if historial %}
+
+
+        <div class="historial-tabla-contenedor">
+
+            <table class="historial-tabla">
+
+                <thead>
+
+                    <tr>
+
+                        <th>
+                            Hora
+                        </th>
+
+                        <th>
+                            Origen
+                        </th>
+
+                        <th>
+                            Cantidad
+                        </th>
+
+                        <th>
+                            Tipo de visita
+                        </th>
+
+                        <th>
+                            Destino
+                        </th>
+
+                        <th>
+                            Tour
+                        </th>
+
+                        <th>
+                            Usuario
+                        </th>
+
+                        <th>
+                            Estado
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody>
+
+
+                    {% for registro in historial %}
+
+
+                        <tr
+                            class="
+                                historial-fila
+                                {% if registro['estado'] == 'ANULADO' %}
+                                    historial-fila-anulada
+                                {% endif %}
+                            "
+                        >
+
+
+                            <!-- HORA -->
+
+                            <td class="historial-hora">
+
+                                {{ registro["creado_en"][11:16] }}
+
+                            </td>
+
+
+                            <!-- ORIGEN -->
+
+                            <td>
+
+                                <span
+                                    class="
+                                        historial-origen
+                                        historial-origen-{{ registro['origen']|lower }}
+                                    "
+                                >
+
+                                    {% if registro["origen"] == "INGRESO" %}
+
+                                        Ingreso
+
+                                    {% elif registro["origen"] == "GRUPO" %}
+
+                                        Grupo
+
+                                    {% elif registro["origen"] == "PROTOCOLO" %}
+
+                                        Protocolo
+
+                                    {% else %}
+
+                                        {{ registro["origen"] }}
+
+                                    {% endif %}
+
+                                </span>
+
+                            </td>
+
+
+                            <!-- CANTIDAD -->
+
+                            <td class="historial-cantidad">
+
+                                {{ registro["cantidad"] }}
+
+                            </td>
+
+
+                            <!-- TIPO DE VISITA -->
+
+                            <td>
+
+                                {% if registro["origen"] == "DIFERENCIA" %}
+
+                                    <strong>
+                                        {{ registro["diferencia_origen"] }}
+                                    </strong>
+
+                                    →
+
+                                    <strong>
+                                        {{ registro["diferencia_destino"] }}
+                                    </strong>
+
+                                {% else %}
+
+                                    {{ registro["tipo_visita"] }}
+
+                                {% endif %}
+
+                            </td>
+
+
+                            <!-- DESTINO -->
+
+                            <td>
+
+                                {% if registro["destino"] == "PRIVADA" %}
+
+                                    <span class="historial-destino privada">
+                                        Privada
+                                    </span>
+
+                                {% else %}
+
+                                    <span class="historial-destino normal">
+                                        Normal
+                                    </span>
+
+                                {% endif %}
+
+                            </td>
+
+
+                            <!-- TOUR -->
+
+                            <td>
+
+                                {% if registro["tour_id"] %}
+
+                                    <div class="historial-tour">
+
+                                        <strong>
+                                            {{ registro["tour_circuito"] }}
+                                        </strong>
+
+
+                                        {% if registro["tour_hora"] %}
+
+                                            <span>
+                                                {{ registro["tour_hora"] }}
+                                            </span>
+
+                                        {% endif %}
+
+                                    </div>
+
+                                {% else %}
+
+                                    <span class="historial-sin-tour">
+                                        —
+                                    </span>
+
+                                {% endif %}
+
+                            </td>
+
+
+                            <!-- USUARIO -->
+
+                            <td>
+
+                                {{ registro["usuario_nombre"] }}
+
+                            </td>
+
+
+                            <!-- ESTADO -->
+
+                            <td>
+
+                                {% if registro["estado"] == "ACTIVO" %}
+
+                                    <span class="historial-estado activo">
+                                        Activo
+                                    </span>
+
+                                {% else %}
+
+                                    <span class="historial-estado anulado">
+                                        Anulado
+                                    </span>
+
+                                {% endif %}
+
+                            </td>
+
+
+                        </tr>
+
+
+                    {% endfor %}
+
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+
+    {% else %}
+
+
+        <section class="panel sin-datos">
+
+            <p>
+                Todavía no hay movimientos registrados
+                en Recepción durante el día de hoy.
+            </p>
+
+        </section>
+
+
+    {% endif %}
+
+
+</div>
+<section class="panel">
+
+    <div class="finales-encabezado">
+
+        <div>
+
+            <h2>
+                Finales de tours cerrados
+            </h2>
+
+            <p class="subtitulo">
+                Totales definitivos después de ingresos,
+                grupos, protocolos y diferencias
+            </p>
+
+        </div>
+
+    </div>
+
+
+    {% if finales_tours %}
+
+        <div class="finales-tours-grid">
+
+            {% for tour in finales_tours %}
+
+                <article class="final-tour-card">
+
+
+                    <div class="final-tour-cabecera">
+
+                        <div>
+
+                            <strong class="final-tour-circuito">
+                                {{ tour["circuito"] }}
+                            </strong>
+
+                            <span class="final-tour-fecha">
+
+                                {{ tour["fecha"][8:10] }}/
+                                {{ tour["fecha"][5:7] }}/
+                                {{ tour["fecha"][0:4] }}
+
+                            </span>
+
+                        </div>
+
+
+                        <div class="final-tour-hora">
+
+                            {% if tour["circuito"] == "MUSEO" %}
+
+                                Museo
+
+                            {% else %}
+
+                                {{ tour["hora"] }}
+
+                            {% endif %}
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="final-tour-tipos">
+
+                        {% for tipo in tour["tipos"] %}
+
+                            <div class="final-tour-tipo">
+
+                                <span>
+                                    {{ tipo["nombre"] }}
+                                </span>
+
+                                <strong>
+                                    {{ tipo["cantidad"] }}
+                                </strong>
+
+                            </div>
+
+                        {% endfor %}
+
+                    </div>
+
+
+                    <div class="final-tour-total">
+
+                        <span>
+                            Total final
+                        </span>
+
+                        <strong>
+                            {{ tour["total"] }}
+                        </strong>
+
+                        {% if tour["capacidad"] %}
+
+                            <small>
+                                / {{ tour["capacidad"] }}
+                            </small>
+
+                        {% endif %}
+
+                    </div>
+
+
+                    {% if tour["cerrado_en"] %}
+
+                        <div class="final-tour-cierre">
+
+                            Cerrado:
+                            {{ tour["cerrado_en"][11:16] }}
+
+                        </div>
+
+                    {% endif %}
+
+
+                </article>
+
+            {% endfor %}
+
+        </div>
+
+
+    {% else %}
+
+        <p class="texto-vacio">
+            No hay tours cerrados en el período seleccionado.
+        </p>
+
+    {% endif %}
+
+        {% if resumen_tipos %}
+
+        <div class="resumen-finales">
+
+            {% for tipo in resumen_tipos %}
+
+                <div class="resumen-final-card">
+
+                    <span>
+                        {{ tipo["nombre"] }}
+                    </span>
+
+                    <strong>
+                        {{ tipo["cantidad"] }}
+                    </strong>
+
+                </div>
+
+            {% endfor %}
+
+
+            <div class="
+                resumen-final-card
+                resumen-final-total
+            ">
+
+                <span>
+                    Total
+                </span>
+
+                <strong>
+                    {{ total_final_general }}
+                </strong>
+
+            </div>
+
+        </div>
+
+    {% endif %}
+
+</section>
+
+<script>
+
+document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+
+        const tipoSelect =
+            document.getElementById(
+                "tipo_visita_id"
+            );
+
+        const tourSelect =
+            document.getElementById(
+                "tour_id"
+            );
+
+
+        function actualizarTours() {
+
+            const opcionTipo =
+                tipoSelect.options[
+                    tipoSelect.selectedIndex
+                ];
+
+            const circuito =
+                opcionTipo.dataset.circuito || "";
+
+
+            Array.from(
+                tourSelect.options
+            ).forEach(
+                opcion => {
+
+                    if (!opcion.value) {
+                        opcion.hidden = false;
+                        return;
+                    }
+
+
+                    if (!circuito) {
+
+                        opcion.hidden = false;
+
+                    } else {
+
+                        opcion.hidden =
+                            opcion.dataset.circuito
+                            !== circuito;
+
+                    }
+
+                }
+            );
+
+
+            const opcionActual =
+                tourSelect.options[
+                    tourSelect.selectedIndex
+                ];
+
+
+            if (
+                opcionActual
+                && opcionActual.hidden
+            ) {
+
+                tourSelect.value = "";
+
+            }
+
+        }
+
+
+        tipoSelect.addEventListener(
+            "change",
+            actualizarTours
+        );
+
+
+        actualizarTours();
+
+    }
+);
+
+</script>
+
+{% endblock %}

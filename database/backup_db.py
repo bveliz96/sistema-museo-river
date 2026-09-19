@@ -89,9 +89,17 @@ def crear_backup():
             timeout=10
         )
 
+        conexion_origen.execute(
+            "PRAGMA busy_timeout = 10000"
+        )
+
         conexion_destino = sqlite3.connect(
             archivo_destino,
             timeout=10
+        )
+
+        conexion_destino.execute(
+            "PRAGMA busy_timeout = 10000"
         )
 
         conexion_origen.backup(

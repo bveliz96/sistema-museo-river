@@ -2,8 +2,18 @@ import argparse
 
 from waitress import serve
 
-from app import app
-from database.backup_db import crear_backup
+from rutas_sistema import (
+    ARCHIVO_DATABASE,
+    crear_carpetas_sistema
+)
+
+from database.init_db import (
+    inicializar_base_datos
+)
+
+from database.backup_db import (
+    crear_backup
+)
 
 
 def leer_argumentos():
@@ -25,6 +35,7 @@ def leer_argumentos():
 def iniciar_servidor():
 
     argumentos = leer_argumentos()
+
     puerto = argumentos.port
 
 
@@ -40,44 +51,98 @@ def iniciar_servidor():
 
 
     # --------------------------------
+    # CREAR CARPETAS DEL SISTEMA
+    # --------------------------------
+
+    crear_carpetas_sistema()
+
+
+    # --------------------------------
+    # COMPROBAR SI YA EXISTÍA LA BASE
+    # --------------------------------
+
+    base_existia = (
+        ARCHIVO_DATABASE.exists()
+    )
+
+
+    # --------------------------------
+    # INICIALIZAR BASE DE DATOS
+    # --------------------------------
+
+    inicializar_base_datos()
+
+
+    # --------------------------------
     # BACKUP AUTOMÁTICO
     # --------------------------------
 
-    try:
+    # En la primera ejecución no hacemos
+    # backup porque la base acaba de ser
+    # creada y todavía está vacía.
 
-        ruta_backup = crear_backup()
+    if base_existia:
 
-        print(
-            "Backup automático creado correctamente."
-        )
+        try:
 
-        if ruta_backup:
+            ruta_backup = crear_backup()
 
             print(
-                f"Backup: {ruta_backup}"
+                "Backup automático creado correctamente."
+            )
+
+            if ruta_backup:
+
+                print(
+                    f"Backup: {ruta_backup}"
+                )
+
+
+        except Exception as error:
+
+            print(
+                "No se pudo crear el backup automático."
+            )
+
+            print(
+                f"Error: {error}"
             )
 
 
-    except Exception as error:
+    # --------------------------------
+    # CARGAR APLICACIÓN
+    # --------------------------------
 
-        print(
-            "No se pudo crear el backup automático."
-        )
+    # Lo importamos después de haber
+    # inicializado la base de datos.
 
-        print(
-            f"Error: {error}"
-        )
+    from app import app
 
 
     # --------------------------------
     # INICIAR SERVIDOR
     # --------------------------------
 
-    print("------------------------------------------")
-    print("Sistema Museo iniciado correctamente")
-    print(f"Puerto: {puerto}")
-    print(f"Abrir: http://127.0.0.1:{puerto}")
-    print("------------------------------------------")
+    print(
+        "------------------------------------------"
+    )
+
+    print(
+        "Sistema Museo iniciado correctamente"
+    )
+
+    print(
+        f"Puerto: {puerto}"
+    )
+
+    print(
+        f"Abrir localmente: "
+        f"http://127.0.0.1:{puerto}"
+    )
+
+    print(
+        "------------------------------------------"
+    )
 
 
     serve(

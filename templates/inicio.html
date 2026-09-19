@@ -91,6 +91,80 @@ Inicio
 
 </section>
 
+<section class="proximos-tours">
+
+    <div class="inicio-proximos-tours">
+
+
+        <!-- ============================= -->
+        <!-- PRÓXIMO ESTADIO              -->
+        <!-- ============================= -->
+
+        <div class="inicio-proximo-tour-card">
+
+            <span class="inicio-proximo-tour-titulo">
+                Próximo estadio
+            </span>
+
+
+            {% if proximo_estadio %}
+
+                <strong class="inicio-proximo-tour-hora">
+                    {{ proximo_estadio["hora"] }}
+                </strong>
+
+                <span>
+                    {{ proximo_estadio["total"] }}
+                    personas
+                </span>
+
+            {% else %}
+
+                <strong class="inicio-proximo-tour-vacio">
+                    Sin próximos tours
+                </strong>
+
+            {% endif %}
+
+        </div>
+
+
+        <!-- ============================= -->
+        <!-- PRÓXIMA TRIBUNA              -->
+        <!-- ============================= -->
+
+        <div class="inicio-proximo-tour-card">
+
+            <span class="inicio-proximo-tour-titulo">
+                Próxima tribuna
+            </span>
+
+
+            {% if proxima_tribuna %}
+
+                <strong class="inicio-proximo-tour-hora">
+                    {{ proxima_tribuna["hora"] }}
+                </strong>
+
+                <span>
+                    {{ proxima_tribuna["total"] }}
+                    personas
+                </span>
+
+            {% else %}
+
+                <strong class="inicio-proximo-tour-vacio">
+                    Sin próximos tours
+                </strong>
+
+            {% endif %}
+
+        </div>
+
+
+    </div>
+
+</section>
 
 <!-- ============================= -->
 <!-- ACCESOS RÁPIDOS -->
@@ -118,14 +192,14 @@ Inicio
 
         <a
             href="{{ url_for('nuevo_protocolo') }}"
-            class="boton-secundario"
+            class="boton"
         >
             + Cargar protocolo
         </a>
 
         <a
             href="{{ url_for('nuevo_inmersivo') }}"
-            class="boton-secundario"
+            class="boton"
         >
             + Cargar inmersivo
         </a>
